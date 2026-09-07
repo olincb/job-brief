@@ -1,4 +1,4 @@
-from jobbrief.brief import condense
+from jobbrief.sources import condense
 from record_fixtures import REQUIRED_LINES  # the lines the recorder guaranteed the posting carries
 
 

@@ -11,7 +11,7 @@ import pytest
 @pytest.fixture(autouse=True)
 def no_network(monkeypatch):
     def refuse(*args, **kwargs):
-        raise AssertionError("tests must not touch the network; monkeypatch jobbrief.brief.get instead")
+        raise AssertionError("tests must not touch the network; monkeypatch jobbrief.sources.get instead")
 
     monkeypatch.setattr(urllib.request, "urlopen", refuse)
 

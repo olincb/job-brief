@@ -1,6 +1,6 @@
 import re
 
-from jobbrief.brief import markdown_to_html, render
+from jobbrief.render import markdown_to_html, render
 
 
 def test_numbered_picks_stay_one_list_across_blank_lines(fixture_dir):

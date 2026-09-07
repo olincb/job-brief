@@ -1,8 +1,8 @@
 import argparse
 import json
 
-from jobbrief import brief
-from jobbrief.brief import POSTINGS_HEADER
+from jobbrief import cli, sheet
+from jobbrief.sheet import POSTINGS_HEADER
 
 
 def fake_gws(monkeypatch, sheet_id, existing_tabs, headers):
@@ -25,7 +25,7 @@ def fake_gws(monkeypatch, sheet_id, existing_tabs, headers):
                 return {"permissions": []}
         return {}
 
-    monkeypatch.setattr(brief, "gws", gws)
+    monkeypatch.setattr(sheet, "gws", gws)
     return calls
 
 
@@ -39,7 +39,7 @@ def header_writes(calls):
 
 def test_init_sheet_creates_and_prints_the_id_when_none_is_given(monkeypatch, capsys):
     calls = fake_gws(monkeypatch, "new-sheet-id", ["Postings", "Seen", "Runs"], {})
-    brief.cmd_init_sheet(argparse.Namespace(sheet_id="", title="Job Brief", share_with=""))
+    cli.cmd_init_sheet(argparse.Namespace(sheet_id="", title="Job Brief", share_with=""))
     out = capsys.readouterr().out
     assert "created spreadsheet new-sheet-id" in out and "spreadsheets/d/new-sheet-id" in out
     assert json.loads(calls[0][calls[0].index("--json") + 1])["properties"]["title"] == "Job Brief"
@@ -48,7 +48,7 @@ def test_init_sheet_creates_and_prints_the_id_when_none_is_given(monkeypatch, ca
 
 def test_init_sheet_upgrades_an_existing_sheet_in_place(monkeypatch):
     calls = fake_gws(monkeypatch, "unused", ["Postings"], {"Postings": POSTINGS_HEADER})
-    brief.cmd_init_sheet(argparse.Namespace(sheet_id="existing-id", title="Job Brief", share_with=""))
+    cli.cmd_init_sheet(argparse.Namespace(sheet_id="existing-id", title="Job Brief", share_with=""))
     assert not any("create" in c for c in calls)
     assert added_tabs(calls) == ["Seen", "Runs"]
     assert header_writes(calls) == ["Seen", "Runs"]
@@ -56,6 +56,6 @@ def test_init_sheet_upgrades_an_existing_sheet_in_place(monkeypatch):
 
 def test_init_sheet_shares_with_the_given_account(monkeypatch):
     calls = fake_gws(monkeypatch, "unused", ["Postings", "Seen", "Runs"], {})
-    brief.cmd_init_sheet(argparse.Namespace(sheet_id="existing-id", title="Job Brief", share_with="someone@example.com"))
+    cli.cmd_init_sheet(argparse.Namespace(sheet_id="existing-id", title="Job Brief", share_with="someone@example.com"))
     grant = next(c for c in calls if c[:3] == ("drive", "permissions", "create"))
     assert json.loads(grant[grant.index("--json") + 1]) == {"type": "user", "role": "writer", "emailAddress": "someone@example.com"}

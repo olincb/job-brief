@@ -1,3 +1,3 @@
-from jobbrief.brief import main
+from jobbrief.cli import main
 
 main()

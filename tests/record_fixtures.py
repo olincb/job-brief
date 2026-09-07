@@ -12,7 +12,7 @@ import re
 import sys
 from pathlib import Path
 
-from jobbrief.brief import condense, get, strip_html
+from jobbrief.sources import condense, get, strip_html
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

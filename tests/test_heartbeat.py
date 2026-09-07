@@ -2,15 +2,15 @@ import argparse
 import json
 from datetime import date, timedelta
 
-from jobbrief import brief
-from jobbrief.brief import RUNS_HEADER
+from jobbrief import cli
+from jobbrief.sheet import RUNS_HEADER
 
 
 def heartbeat(out, capsys, runs):
     """Run the heartbeat rule over a synthetic Runs tab. `runs` is (days ago, emailed)."""
     rows = [[str(date.today() - timedelta(days=ago)), "", "", "", "", emailed, "", ""] for ago, emailed in runs]
     (out / "runs.json").write_text(json.dumps({"values": [RUNS_HEADER, *rows]}))
-    brief.cmd_heartbeat(argparse.Namespace(out=out, runs="", postings="", days=4))
+    cli.cmd_heartbeat(argparse.Namespace(out=out, runs="", postings="", days=4))
     return capsys.readouterr().out.strip()
 
 

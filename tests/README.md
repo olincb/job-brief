@@ -4,7 +4,7 @@
 `conftest.py` replaces `urllib.request.urlopen` for every test, so code that
 reaches for a live board fails with an assertion instead of passing against
 whatever the board happens to return today. Tests that exercise a fetcher
-monkeypatch `jobbrief.brief.get`, the engine's one network call, with a lookup
+monkeypatch `jobbrief.sources.get`, the engine's one network call, with a lookup
 over recorded bodies.
 
 ## Layout

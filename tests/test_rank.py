@@ -2,8 +2,9 @@ import json
 
 import pytest
 
-from jobbrief import brief
-from jobbrief.brief import build_prompt, finish, generate
+from jobbrief import llm
+from jobbrief.llm import generate
+from jobbrief.rank import build_prompt, finish
 
 
 def test_prompt_has_the_blocks_the_template_names_in_order():
@@ -35,7 +36,7 @@ def fake_gemini(monkeypatch, answers):
         data = answers[model]
         return {"candidates": [{"content": {"parts": [{"text": data}]}}], "usageMetadata": {"totalTokenCount": 11}} if data else None
 
-    monkeypatch.setattr(brief, "call_gemini", call)
+    monkeypatch.setattr(llm, "call_gemini", call)
     return calls
 
 
