@@ -255,6 +255,16 @@ The ops repo's `AGENTS.md` is two lines: runbook first, never print or
 commit secrets, test workflow changes with `ONLY_USERS` set to the
 operator.
 
+`AGENTS.md` also carries a "Keep it small" section: the project is one
+person's, paid for out of pocket, maintained in bursts, and every piece of
+infrastructure or abstraction is something the operator must relearn
+later. Its rules are the smallest change that closes the issue, nothing
+for a single caller, no configuration for a single value, no new service
+or dependency without asking and naming the monthly cost, no flags or
+shims, no hardening before a failure, no optimization without a
+measurement, and delete when in doubt. It was added during the first
+implementation issues when the pull toward generality first showed.
+
 ## Security and privacy stance
 
 - Users own their sheets and can revoke the bot at any time by removing
