@@ -31,7 +31,12 @@ project plus one AWS account, both the operator's.
 
 The engine is standard library with one exception: `google-auth` signs the
 service account's JWT, because the standard library has no RSA and that is
-the kind of domain logic a dependency is for. The web app adds Flask and
+the kind of domain logic a dependency is for. The key reaches the engine
+through one environment variable, `SERVICE_ACCOUNT_JSON`, holding the key
+file's JSON; `cli.py` reads it, mints a short-lived token scoped to
+`spreadsheets` and `drive.file`, and passes the token to the sheet
+functions. Everything after signing — the token exchange and every Sheets
+and Drive call — is `urllib`. The web app adds Flask and
 waitress in a `web` extra, so installing the engine alone pulls neither.
 Flask because the app is forms, redirects, and a signed cookie, which is
 what it ships; waitress because it is one process with threads, and signup

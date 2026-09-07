@@ -25,7 +25,7 @@ from pathlib import Path
 from jobbrief.llm import generate, parse_model_json
 from jobbrief.rank import build_prompt, finish
 from jobbrief.render import heartbeat_html, render
-from jobbrief.sheet import days_since_email, init_sheet, load_sheet_rows, share_sheet
+from jobbrief.sheet import days_since_email, init_sheet, load_sheet_rows, service_account_token, share_sheet
 from jobbrief.sources import FETCHERS, SKIPPED, enrich, select_candidates
 
 
@@ -105,9 +105,10 @@ def cmd_log_run(args):
 
 def cmd_init_sheet(args):
     """Idempotent: safe to rerun after upgrading, e.g. when a new tab is introduced."""
-    sheet_id = init_sheet(args.sheet_id, args.title)
+    token = service_account_token(os.environ.get("SERVICE_ACCOUNT_JSON") or sys.exit("SERVICE_ACCOUNT_JSON is not set"))
+    sheet_id = init_sheet(token, args.sheet_id, args.title)
     if args.share_with:
-        share_sheet(sheet_id, args.share_with)
+        share_sheet(token, sheet_id, args.share_with)
     print(f"ready: https://docs.google.com/spreadsheets/d/{sheet_id}")
 
 
@@ -121,14 +122,14 @@ def main():
     p.add_argument("--sources", default="", help="board list JSON; default is the one shipped in the package")
     p.add_argument("--title-filter", action="append", metavar="REGEX", help="keep titles matching any; repeatable")
     p.add_argument("--title-exclude", action="append", metavar="REGEX", help="drop titles matching any; repeatable")
-    p.add_argument("--seen", default="", help="gws dump of the Seen tab (default: <out>/seen.json)")
+    p.add_argument("--seen", default="", help="saved dump of the Seen tab (default: <out>/seen.json)")
     p.add_argument("--lookback-days", type=int, default=3)
     p.set_defaults(func=cmd_fetch)
 
     p = sub.add_parser("prompt", parents=[common])
     p.add_argument("--prompt", default="", help="instruction template; default is the one shipped in the package")
     p.add_argument("--profile", required=True, help="the user's prose profile, as a file")
-    p.add_argument("--postings", default="", help="gws dump of the Postings tab (default: <out>/postings.json)")
+    p.add_argument("--postings", default="", help="saved dump of the Postings tab (default: <out>/postings.json)")
     p.add_argument("--max-picks", type=int, default=10)
     p.set_defaults(func=cmd_prompt)
 
@@ -144,12 +145,12 @@ def main():
 
     p = sub.add_parser("render", parents=[common])
     p.add_argument("--sheet-id", default="", help="tracking sheet to link in the footer")
-    p.add_argument("--postings", default="", help="gws dump of the Postings tab (default: <out>/postings.json)")
+    p.add_argument("--postings", default="", help="saved dump of the Postings tab (default: <out>/postings.json)")
     p.set_defaults(func=cmd_render)
 
     p = sub.add_parser("heartbeat", parents=[common])
-    p.add_argument("--runs", default="", help="gws dump of the Runs tab (default: <out>/runs.json)")
-    p.add_argument("--postings", default="", help="gws dump of the Postings tab (default: <out>/postings.json)")
+    p.add_argument("--runs", default="", help="saved dump of the Runs tab (default: <out>/runs.json)")
+    p.add_argument("--postings", default="", help="saved dump of the Postings tab (default: <out>/postings.json)")
     p.add_argument("--days", type=int, default=4)
     p.set_defaults(func=cmd_heartbeat)
 
