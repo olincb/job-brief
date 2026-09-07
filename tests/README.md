@@ -12,7 +12,8 @@ over recorded bodies.
 - `test_*.py`: one module per concern. Condense; the Markdown renderer;
   the heartbeat rule; fetching (one fetcher against a recording, title filters,
   dedup against the Seen tab); ranking (prompt assembly, the model call's
-  fallback budget against a fake `call_gemini`, picks into rows); and
+  fallback budget against a fake `call_gemini`, picks into rows); the registry
+  selection (inactive rows dropped, `ONLY_USERS` scoping, case-insensitive); and
   init-sheet against a fake `gws` that records the calls it would make.
 - `fixtures/<source>/<slug>.json`: a board's response saved unmodified.
 - `fixtures/posting.txt`: one posting as `condense` receives it, after HTML is
