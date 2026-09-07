@@ -16,7 +16,8 @@ is added. The design and its reasons are in `design.md`; this is only a map.
 
 - `__init__.py` — package docstring only.
 - `__main__.py` — hands off to `cli.main`.
-- `cli.py` — `python -m jobbrief`: argparse and the thin subcommands that read files and write under `--out`. The only module that touches the filesystem or the environment.
+- `cli.py` — `python -m jobbrief`: argparse and the thin subcommands that read files and write under `--out`. The only module that touches the filesystem, and with `mail.py` one of the two that read the environment.
+- `mail.py` — `send(to, subject, html, text)`: one email through SES over SMTP (multipart/alternative, STARTTLS on 587), plus the two failure-notice bodies. Reads the SES credentials and sender from the environment.
 - `sources.py` — where postings come from: HTTP get, HTML stripping, `condense`, one generator per source, the enrichers, and `select_candidates` over the fetched pool.
 - `llm.py` — `generate`, the one Gemini call with retries and the fallback model inside it, and the tolerant JSON parser.
 - `rank.py` — `build_prompt` from template, profile, pipeline, and candidates; `finish` from the model's answer to the brief and sheet rows.
