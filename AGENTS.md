@@ -48,9 +48,12 @@ Complexity does not get amortized here; it just delays results.
 - **The smallest change that closes the issue.** Not the most general, not
   the most robust, not the one that anticipates the next issue. If the next
   issue needs more, the next issue adds it.
-- **Nothing for a single caller.** No helper, module, base class, or
-  utility file for something used once. Inline it. Extract when the third
-  use appears, not the second.
+- **Don't invent abstractions.** No helper, module, base class, or
+  utility file exists to serve one call site; inline it. Extract a helper
+  when it has real callers, counting any the design doc already names as
+  coming. The goal is fewer made-up layers, not less repetition: a short
+  helper shared by two call sites is fine, and inlining it into two long
+  expressions makes things worse.
 - **No configuration for a single value.** A constant in code with a
   comment beats a setting nobody will ever change. Settings exist for
   things that differ per user or per deployment, and the design doc lists
