@@ -20,7 +20,7 @@ choices below assume that.
 |---|---|---|---|---|
 | Engine | public GitHub repo | nothing | none | none |
 | Daily job | GitHub Actions, scheduled, in a private ops repo that pins the engine | service account; Gemini key; SES SMTP credentials | those three | none |
-| Web app: sign-in, signup form, settings | Fly.io, one auto-stop Machine, Python, server-rendered | Google OAuth client for identity; service account for Sheets and Drive | OAuth client secret, session key, service account key | none |
+| Web app: sign-in, signup form, settings | Fly.io, one auto-stop Machine, Flask behind waitress, server-rendered | Google OAuth client for identity; service account for Sheets and Drive | OAuth client secret, session key, service account key | transient signup stash between form submit and Drive consent; lost on restart |
 | Registry sheet | Drive, owned by the service account | | | `Users`: email, sheet id, active, frequency. `Allowed`: invited emails. |
 | Per-user sheet | the user's own Drive, service account as editor | | | Answers, Profile, Settings, Postings, Seen, Runs |
 | Email | Amazon SES, `brief@<your-domain>`, production access | | SMTP credentials | |
@@ -29,17 +29,29 @@ Nothing per user is stored anywhere except a registry row and their own
 sheet. No database. No refresh tokens. Everything is in one Google Cloud
 project plus one AWS account, both the operator's.
 
+The engine is standard library with one exception: `google-auth` signs the
+service account's JWT, because the standard library has no RSA and that is
+the kind of domain logic a dependency is for. The web app adds Flask and
+waitress in a `web` extra, so installing the engine alone pulls neither.
+Flask because the app is forms, redirects, and a signed cookie, which is
+what it ships; waitress because it is one process with threads, and signup
+keeps state in that process between two requests.
+
 ## Flows
 
 ### Sign in and gate
 
 Google OAuth, authorization-code flow with a confidential client, httpOnly
-session cookie, server-rendered pages. Scopes: `openid`, `email`,
-`profile`, `drive.file`. All four are classified non-sensitive, so the app
-is published to Production with no verification review and no user cap.
+session cookie, server-rendered pages. Sign-in asks for identity scopes
+only: `openid`, `email`, `profile`. `drive.file` is requested in a second
+consent step at the moment signup is about to create the sheet, so nobody
+sees the form before the gate and no Drive token ever sits in a cookie.
+All four scopes are classified non-sensitive, so the app is published to
+Production with no verification review and no user cap.
 
 The returned verified email is matched, case-insensitively, against the
-`Allowed` tab. The operator's address is hardcoded as always allowed. An
+`Allowed` tab. The operator's address, a deployment value rather than
+anything in the engine, is always allowed. An
 unknown address sees an invite-only page and triggers one email to the
 operator naming the address. Nothing else is created, so an uninvited
 login costs nothing. A signed approve link in that email is a later
@@ -61,25 +73,33 @@ converted to text), and two free-text boxes, "about you" and "about what
 you want," framed as the place for career-specific detail the generic
 questions miss.
 
-On submit, inside the same request and using the user's short-lived
-`drive.file` token:
+Signup is three requests. The form is behind the gate, and nothing touches
+Drive until the last step:
 
-1. Create a spreadsheet in the user's Drive with the tabs above.
-2. Add the service account as editor.
-3. Write the raw answers to `Answers` (free text in its own columns so the
-   operator can read them across users) and the mechanical settings to
-   `Settings`.
-4. Call Gemini on the paid tier with the answers and the resume to draft a
-   prose `Profile`. Resume is ground truth for experience and skills,
-   answers for preferences and hard lines, free text is high-signal detail
-   to quote rather than summarize, and contact details are never copied
-   into the profile.
-5. Discard the token and the resume bytes. The `Profile` tab is what
-   persists and is editable.
-6. Append a registry row and send a welcome email with the sheet link.
+1. On submit, call Gemini on the paid tier with the answers and the resume
+   to draft a prose `Profile`. Resume is ground truth for experience and
+   skills, answers for preferences and hard lines, free text is high-signal
+   detail to quote rather than summarize, and contact details are never
+   copied into the profile. Derive the title filters and the condense
+   vocabulary from the answers. Keep answers, profile, and settings in the
+   web process, keyed by the session; discard the resume bytes. A model
+   failure stops here, before anything exists.
+2. Redirect to Google for `drive.file`, with the signed-in email as the
+   login hint so consent is one click on the same account.
+3. In the callback, with a token seconds old: create a spreadsheet in the
+   user's Drive with the tabs above, add the service account as editor,
+   write the raw answers to `Answers` (free text in its own columns so the
+   operator can read them across users), the profile to `Profile`, and the
+   mechanical settings to `Settings`. Append a registry row with `active`
+   set to `no`, send a welcome email with the sheet link, and discard the
+   token and the stashed answers. The `Profile` tab is what persists and is
+   editable.
 
-The first several generated profiles are reviewed by the operator before
-the user's first run. Profiles start marked draft.
+A new user is inactive until the operator has read the generated profile
+and set `active` to `yes`; this is the draft state, and it is the same cell
+the user's own pause toggles. The stash between steps 1 and 3 lives in the
+one web process and is lost if the Machine restarts, in which case the user
+submits the form again.
 
 Verified against Google's reference: `spreadsheets.create` and
 `permissions.create` both accept `drive.file`, and the Sheets API accepts
@@ -98,7 +118,7 @@ app just made.
    condense each posting to its requirements, one Gemini call with the
    primary-then-fallback retry budget, append `Seen` and `Postings`,
    render HTML, send via SES, append a `Runs` row with candidates, picks,
-   model, tokens, fit distribution and source attribution.
+   model, tokens, and picks per source.
 3. Quiet day: heartbeat rule, counted from the last send day.
 4. Non-send day: a `skipped` Runs row and nothing else. Picks are never
    appended to a sheet without an email, so the sheet and the inbox always
@@ -113,6 +133,9 @@ Logs carry sheet ids and counts, never addresses or profile text.
 Profile text in an editable box, title filters, frequency (daily,
 weekdays, weekly), pick cap, pause, and "retake the questionnaire," which
 regenerates the profile from fresh answers. Recent `Runs` rows are shown.
+Frequency and pause write to the registry row, not the user's sheet, so the
+daily run decides a non-send day without opening the sheet; the rest write
+to `Settings`. Weekly users get their brief on Monday.
 Delete-me removes the registry row and the service account's editor
 access; the sheet stays with the user. The operator's removal path is the
 same two edits.
@@ -134,11 +157,21 @@ Guardrails:
   flagged as a filter that is too loose.
 
 Coverage is measured, not configured. Per user per run: candidate count,
-fit distribution across all candidates, and which source each pick came
-from. A user under five candidates or a median fit under 2 for five runs
-is flagged "sources thin" in the operator digest. The questionnaire asks
+pick count, and which source each pick came from, all of which the run
+already knows. The model is not asked to score candidates it does not pick;
+a fit distribution was considered and dropped because it changed the JSON
+contract to feed one heuristic that counts serve as well. A user with under
+five candidates, or zero picks with candidates present, for five runs is
+flagged "sources thin" in the operator digest. The questionnaire asks
 "job boards or employers you already check," which is a request queue for
 the next fetcher, not a selector.
+
+Condensing a posting to its requirement lines keys on vocabulary, and the
+stack words that catch a software posting miss a license or certification
+in another field. The vocabulary is per user, taken from the questionnaire's
+tools and certifications answers and stored in `Settings`, so a
+conservation-district posting's "pesticide applicator certification" reaches
+the model for the user it matters to.
 
 Known gap at design time: public-sector sources. Washington state, county
 and city governments, WWU and conservation districts post through NEOGOV
@@ -161,8 +194,10 @@ SES over any Gmail route. The credential is send-only and project-owned,
 not tied to anyone's personal account, and rotating it touches nothing
 else. Domain verified with Easy DKIM records published at your DNS provider,
 plus SPF and DMARC records. Production access requested before onboarding anyone
-beyond the first two users; until then each recipient must click an
-Amazon verification link, and the signup page says so. Hard bounces are
+beyond the first two users; until then the operator verifies each
+recipient by hand in the AWS console, the recipient clicks the Amazon link,
+and the signup page says so. The code speaks SMTP only and never calls the
+SES API, so there is no AWS request signing anywhere. Hard bounces are
 handled by SES's account-level suppression list, which is sufficient
 because every recipient is known personally.
 
@@ -282,15 +317,22 @@ implementation issues when the pull toward generality first showed.
 
 ## Build order
 
-Components with no dependency on the web app come first, so the daily job
-can deliver to seeded users before signup exists: the fetchers and the
-fetch-once-then-select split, requirements-aware condensing, the ranking
-prompt and JSON contract, the HTML renderer, the sheet tabs including Runs
-and the heartbeat rule, the fallback-model retry budget, SES send, the
-registry and scoping, coverage metrics. Then the web app: sign-in and gate,
-signup with sheet creation, profile generation from answers and resume,
-settings. Then the operator digest and new fetchers, NEOGOV first. Issues
-carry the detail.
+The web app comes before the daily job. Every user enters through signup,
+so the run loop reads tabs that signup wrote and every end-to-end test
+starts at the real entry point; a hand-seeded layout would only drift from
+the generated one. The earlier prototype already delivers briefs, so
+nothing is gained by racing the job out first.
+
+Four phases, one milestone each. Foundations: the Sheets and Drive client
+on the service account, the six-tab sheet layout, the registry and
+scoping, SES send. Web app: sign-in and gate, signup with sheet creation,
+profile generation from answers and resume, settings. Daily job: send-day
+rule and stretched lookback, the candidate cap and empty-filter guard, the
+run loop that fetches once and then serves every user, engine docs. Sources
+and digest: the operator digest, NEOGOV, per-user condense vocabulary.
+Already built from the prototype: the fetchers, condensing, the ranking
+prompt and JSON contract, the fallback-model retry budget, the renderer,
+and the heartbeat rule. Issues carry the detail.
 
 ## Verified and open
 
@@ -312,10 +354,3 @@ The signed approve link, brand verification of the consent screen,
 per-posting normalization before ranking, and any notion of users beyond
 people the operator knows. Each has a clear trigger for when to build it,
 and none changes the shape above.
-
-## Seeding
-
-Before signup exists, the operator can register a user by hand: create a
-registry row and a sheet with a written profile. Such users sign up like
-anyone else once the web app is live and copy their rows across. Nothing
-in the design depends on a migration path.
