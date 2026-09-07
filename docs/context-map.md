@@ -23,6 +23,7 @@ is added. The design and its reasons are in `design.md`; this is only a map.
 - `rank.py` — `build_prompt` from template, profile, pipeline, and candidates; `finish` from the model's answer to the brief and sheet rows.
 - `render.py` — Markdown to inline-styled HTML, the backlog line, the sheet-link footer, the heartbeat email body.
 - `sheet.py` — tab headers, `days_since_email` for the heartbeat rule, and the Sheets/Drive client: a service-account token, one authenticated request, the six tab and permission operations, and `init_sheet`/`share_sheet` on top.
+- `registry.py` — the registry sheet: the `Users` and `Allowed` tab headers and `users_to_run`, which picks the active users a run serves and applies `ONLY_USERS`.
 - `find_boards.py` — operator tool: turns company names into verified ATS slugs for `sources.base.json`.
 - `data/prompt.md` — instructions to the model: scoring rubric, brief layout, JSON contract.
 - `data/sources.base.json` — shared board slugs per ATS, Climatebase queries, and the whole-feed sources everyone runs against.
@@ -43,6 +44,7 @@ Verify command: `python -m pytest`. Runs with no network; see `tests/README.md`.
 - `test_condense.py` — years, remote, and pay lines survive condensing.
 - `test_render.py` — numbered picks stay one list across blank lines; links, bold, sheet footer.
 - `test_heartbeat.py` — the heartbeat rule over synthetic Runs rows.
+- `test_registry.py` — `users_to_run`: inactive rows dropped, no filter returns all active, `ONLY_USERS` restricts case-insensitively.
 - `test_fetch.py` — Greenhouse fetcher against the recording, unreachable board skipped, title filters, Seen dedup.
 - `fixtures/greenhouse/gradle.json` — one Greenhouse board response, saved unmodified.
 - `fixtures/posting.txt` — one posting as `condense` receives it.
