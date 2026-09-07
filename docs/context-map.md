@@ -9,7 +9,7 @@ is added. The design and its reasons are in `design.md`; this is only a map.
 - `AGENTS.md` — the contract for working here: non-negotiables, workflow, this map's rule.
 - `CLAUDE.md` — imports `AGENTS.md` for Claude Code.
 - `README.md` — what the project is and the one install command.
-- `pyproject.toml` — package metadata, no runtime dependencies, pytest configuration.
+- `pyproject.toml` — package metadata, the one runtime dependency (`google-auth`), pytest configuration.
 - `LICENSE` — MIT.
 
 ## `jobbrief/` — the engine
@@ -21,7 +21,7 @@ is added. The design and its reasons are in `design.md`; this is only a map.
 - `llm.py` — `generate`, the one Gemini call with retries and the fallback model inside it, and the tolerant JSON parser.
 - `rank.py` — `build_prompt` from template, profile, pipeline, and candidates; `finish` from the model's answer to the brief and sheet rows.
 - `render.py` — Markdown to inline-styled HTML, the backlog line, the sheet-link footer, the heartbeat email body.
-- `sheet.py` — tab headers, reading a gws dump, `days_since_email` for the heartbeat rule, `init_sheet` and `share_sheet` through gws.
+- `sheet.py` — tab headers, `days_since_email` for the heartbeat rule, and the Sheets/Drive client: a service-account token, one authenticated request, the six tab and permission operations, and `init_sheet`/`share_sheet` on top.
 - `find_boards.py` — operator tool: turns company names into verified ATS slugs for `sources.base.json`.
 - `data/prompt.md` — instructions to the model: scoring rubric, brief layout, JSON contract.
 - `data/sources.base.json` — shared board slugs per ATS, Climatebase queries, and the whole-feed sources everyone runs against.
