@@ -98,8 +98,12 @@ def cmd_log_run(args):
     stats = read_json(args.out / "fetch_stats.json", {})
     picks = len(read_json(args.out / "postings_rows.json", {"values": []})["values"])
     rank_stats = read_json(args.out / "rank_stats.json", {})
+    # sources (picks per source) and note stay blank here: the staged files have the pick
+    # count but not which source each pick came from, and there is no failure text to note.
+    # The run loop (#16) holds both in memory and writes the real values.
     row = [datetime.now().strftime("%Y-%m-%d"), stats.get("new_candidates", ""), picks,
-           len(stats.get("skipped_sources", [])), args.outcome, args.emailed, rank_stats.get("model", ""), rank_stats.get("tokens", "")]
+           len(stats.get("skipped_sources", [])), args.outcome, args.emailed,
+           rank_stats.get("model", ""), rank_stats.get("tokens", ""), "", ""]
     (args.out / "run_row.json").write_text(json.dumps({"values": [row]}))
 
 
@@ -155,7 +159,7 @@ def main():
     p.set_defaults(func=cmd_heartbeat)
 
     p = sub.add_parser("log-run", parents=[common])
-    p.add_argument("--outcome", required=True, choices=["sent", "quiet", "heartbeat", "failed"])
+    p.add_argument("--outcome", required=True, choices=["sent", "quiet", "heartbeat", "skipped", "failed"])
     p.add_argument("--emailed", required=True, choices=["yes", "no"])
     p.set_defaults(func=cmd_log_run)
 

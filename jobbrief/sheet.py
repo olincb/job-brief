@@ -13,15 +13,38 @@ from pathlib import Path
 from google.auth import crypt, jwt
 
 
-# Sheet layout. Postings holds the picks and is edited by hand (status, notes).
+# Sheet layout. Answers is the raw questionnaire, one column per question in
+# docs/questionnaire.md order, then the submit date; resume holds the uploaded filename,
+# never the bytes. Postings holds the picks and is edited by hand (status, notes).
 # Seen holds every candidate ever shown to the model so it is never re-scored.
+ANSWERS_HEADER = ["field", "experience", "resume", "tools", "certifications", "work_types",
+                  "search_titles", "exclude_titles", "employer_types", "entry_level", "location",
+                  "terms", "physical", "pay", "avoid_employers", "about_you", "about_want",
+                  "stretch", "per_listing", "checked_sources", "submitted"]
+# Settings is key/value: title_filter, title_exclude (one regex per line in the cell),
+# lookback_days, max_picks. Signup writes the rows; init only lays the header. Frequency
+# and active live in the registry, not here, so the run can skip a non-send day without
+# opening the sheet.
+SETTINGS_HEADER = ["key", "value"]
 POSTINGS_HEADER = ["date_seen", "company", "title", "location", "url", "fit", "reason", "risk", "status", "notes"]
 SEEN_HEADER = ["date_seen", "id", "url"]
 # Runs is the health log: one row per run. The heartbeat reads it to decide whether
-# enough quiet days have passed to say "still here".
-RUNS_HEADER = ["date", "candidates", "picks", "skipped_sources", "outcome", "emailed", "model", "tokens"]
+# enough quiet days have passed to say "still here". sources is picks per source
+# ("greenhouse:3 hackernews:1"); note carries "capped", "empty filter", or a failure message.
+RUNS_HEADER = ["date", "candidates", "picks", "skipped_sources", "outcome", "emailed",
+               "model", "tokens", "sources", "note"]
 
-TABS = {"Postings": POSTINGS_HEADER, "Seen": SEEN_HEADER, "Runs": RUNS_HEADER}
+# Six tabs, in the order the design's Shape table lists them. Profile is a single prose
+# cell the user edits, so it has no header row: init creates the tab but never writes A1,
+# which would clobber the profile on an existing sheet.
+TABS = {
+    "Answers": ANSWERS_HEADER,
+    "Profile": [],
+    "Settings": SETTINGS_HEADER,
+    "Postings": POSTINGS_HEADER,
+    "Seen": SEEN_HEADER,
+    "Runs": RUNS_HEADER,
+}
 
 SHEETS = "https://sheets.googleapis.com/v4/spreadsheets"
 DRIVE = "https://www.googleapis.com/drive/v3/files"
@@ -130,10 +153,11 @@ def remove_editor(token, spreadsheet_id, email):
 
 
 def init_sheet(token, sheet_id, title):
-    """Create the spreadsheet when no id is given. Either way, add whichever of the three
+    """Create the spreadsheet when no id is given. Either way, add whichever of the six
     tabs are missing and write every header row. Row 1 is ours alone, so rewriting it is
     safe; this is how a new column reaches an existing sheet, and older rows simply have a
-    blank in it. Returns the sheet id."""
+    blank in it. Profile has no header: its A1 is the user's prose, so it is created empty
+    and never written. Returns the sheet id."""
     if not sheet_id:
         sheet_id = create_spreadsheet(token, title, TABS)
         print(f"created spreadsheet {sheet_id}")
@@ -147,6 +171,8 @@ def init_sheet(token, sheet_id, title):
                 {"requests": [{"addSheet": {"properties": {"title": tab}}}]})
             print(f"added tab {tab}")
     for tab, header in TABS.items():
+        if not header:  # Profile: A1 is the user's prose, never ours to overwrite
+            continue
         write_range(token, sheet_id, f"{tab}!A1", [header])
         print(f"wrote header row for {tab}")
     return sheet_id

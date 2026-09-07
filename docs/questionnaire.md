@@ -181,3 +181,32 @@ pipeline setting it informs, and *shape:* the answer type.
   so on) as appropriate to the years in question 2.
 - Everything about frequency, pick count, and pause is a setting, not a
   question; defaults are daily, ten picks, active.
+
+## Answers columns
+
+The `Answers` tab stores one column per question, in this order, then
+`submitted`, the date the form was sent. The web form (#11) writes exactly
+these names and `init-sheet` lays them as the header row.
+
+| # | Column | Holds |
+|---|---|---|
+| 1 | `field` | field or industry |
+| 2 | `experience` | years and most recent title |
+| 3 | `resume` | the uploaded filename, or blank; the bytes are never stored |
+| 4 | `tools` | tools and skills with their job/class/heard-of marks |
+| 5 | `certifications` | licenses and certifications |
+| 6 | `work_types` | kinds of work, reordered |
+| 7 | `search_titles` | titles to search for (the title filter) |
+| 8 | `exclude_titles` | titles never to see (the exclude filter) |
+| 9 | `employer_types` | employer types, reordered |
+| 10 | `entry_level` | a role below training: yes/maybe/no |
+| 11 | `location` | location, commute, hybrid, and remote |
+| 12 | `terms` | fine/meh/no per term |
+| 13 | `physical` | physical conditions refused |
+| 14 | `pay` | floor, target, and benefits that change the answer |
+| 15 | `avoid_employers` | companies and industries to rule out |
+| 16 | `about_you` | free text, quoted into the profile |
+| 17 | `about_want` | free text, quoted into the profile |
+| 18 | `stretch` | whether to include stretch roles |
+| 19 | `per_listing` | which per-listing fields to show |
+| 20 | `checked_sources` | boards or employers already checked (source queue) |

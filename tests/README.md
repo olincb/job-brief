@@ -13,8 +13,9 @@ over recorded bodies.
   the heartbeat rule; fetching (one fetcher against a recording, title filters,
   dedup against the Seen tab); ranking (prompt assembly, the model call's
   fallback budget against a fake `call_gemini`, picks into rows); the
-  Sheets/Drive client (init_sheet and share_sheet against a fake request
-  function that records the calls they would make); the registry selection
+  Sheets/Drive client (init_sheet lays the six tabs and never writes Profile,
+  and share_sheet, against a fake request function that records the calls they
+  would make); the registry selection
   (inactive rows dropped, `ONLY_USERS` scoping, case-insensitive); and the
   mail message builder and failure-notice bodies (headers, multipart order,
   no address), which never open an SMTP connection.

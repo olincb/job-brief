@@ -1,5 +1,6 @@
 from jobbrief import sheet
-from jobbrief.sheet import POSTINGS_HEADER, RUNS_HEADER, SEEN_HEADER, TABS
+from jobbrief.sheet import (ANSWERS_HEADER, POSTINGS_HEADER, RUNS_HEADER, SEEN_HEADER,
+                            SETTINGS_HEADER, TABS)
 
 
 def fake_api(monkeypatch, sheet_id, existing_tabs, permissions=()):
@@ -26,7 +27,11 @@ def headers_written(calls):
     return [body["values"][0] for method, _, body in calls if method == "PUT"]
 
 
-def test_init_sheet_creates_and_writes_every_header_when_no_id(monkeypatch, capsys):
+# All six but Profile, whose A1 is the user's prose and never ours to write.
+HEADED = [ANSWERS_HEADER, SETTINGS_HEADER, POSTINGS_HEADER, SEEN_HEADER, RUNS_HEADER]
+
+
+def test_init_sheet_creates_all_six_tabs_and_writes_every_header_but_profile(monkeypatch, capsys):
     calls = fake_api(monkeypatch, "new-sheet-id", existing_tabs=[])
     sheet_id = sheet.init_sheet("token", "", "Job Brief")
     assert sheet_id == "new-sheet-id"
@@ -34,16 +39,20 @@ def test_init_sheet_creates_and_writes_every_header_when_no_id(monkeypatch, caps
     create = next(body for method, url, body in calls if method == "POST" and url.endswith("/spreadsheets"))
     assert create["properties"]["title"] == "Job Brief"
     assert [tab["properties"]["title"] for tab in create["sheets"]] == list(TABS)
-    assert headers_written(calls) == [POSTINGS_HEADER, SEEN_HEADER, RUNS_HEADER]
+    assert headers_written(calls) == HEADED
+    assert not any(method == "PUT" and "Profile" in url for method, url, _ in calls)
 
 
-def test_init_sheet_adds_missing_tabs_and_upgrades_headers_in_place(monkeypatch):
-    calls = fake_api(monkeypatch, "unused", existing_tabs=["Postings"])
+def test_init_sheet_adds_missing_tabs_and_leaves_profile_alone(monkeypatch):
+    # A pre-#7 sheet: only the old three tabs. Answers, Profile, Settings are added.
+    calls = fake_api(monkeypatch, "unused", existing_tabs=["Postings", "Seen", "Runs"])
     sheet.init_sheet("token", "existing-id", "Job Brief")
     assert not any(url.endswith("/spreadsheets") for _, url, _ in calls)  # no create
     added = [body["requests"][0]["addSheet"]["properties"]["title"] for _, url, body in calls if "batchUpdate" in url]
-    assert added == ["Seen", "Runs"]
-    assert headers_written(calls) == [POSTINGS_HEADER, SEEN_HEADER, RUNS_HEADER]
+    assert added == ["Answers", "Profile", "Settings"]
+    assert headers_written(calls) == HEADED
+    # Profile's A1 is the user's profile prose: init adds the tab but never writes it.
+    assert not any(method == "PUT" and "Profile" in url for method, url, _ in calls)
 
 
 def test_read_tab_keys_rows_by_header_and_pads_short_rows(monkeypatch):
