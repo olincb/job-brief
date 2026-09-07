@@ -42,8 +42,8 @@ separate private repo and is never referenced here by value.
 - Tasks live in GitHub Issues on this repo. Start from an issue; if none
   fits, open one before coding. Dependencies are "blocked by #n" in the
   body.
-- Run the verify command before calling anything done. Until it exists:
-  `python -m pytest`.
+- Run `python -m pytest` before calling anything done. It runs offline in
+  under a second. Recording fixtures is a separate step; see `tests/README.md`.
 - Commit to `main`. No branches or pull requests unless asked; with one
   contributor they are ceremony. Close the issue from the commit body with
   `Closes #n`, and reference it with `#n` in earlier commits of a
@@ -64,4 +64,5 @@ separate private repo and is never referenced here by value.
 - `docs/context-map.md` — one line per module and what it owns. Keep it
   current when files move.
 - `jobbrief/` — the package. See the context map.
-- `tests/`, `tests/fixtures/` — pytest, recorded responses.
+- `tests/`, `tests/fixtures/` — pytest, recorded responses. `tests/README.md`
+  covers the layout and how to re-record.
