@@ -44,6 +44,11 @@ separate private repo and is never referenced here by value.
   body.
 - Run the verify command before calling anything done. Until it exists:
   `python -m pytest`.
+- Commit to `main`. No branches or pull requests unless asked; with one
+  contributor they are ceremony. Close the issue from the commit body with
+  `Closes #n`, and reference it with `#n` in earlier commits of a
+  multi-commit task. What would have been a PR description goes in the
+  commit body: why, not what.
 - Small commits, conventional messages (`feat:`, `fix:`, `docs:`,
   `refactor:`, `test:`). No amending. Do not commit or push without the
   operator's explicit okay.
