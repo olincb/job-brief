@@ -7,8 +7,6 @@ from pathlib import Path
 
 import pytest
 
-from jobbrief import brief
-
 
 @pytest.fixture(autouse=True)
 def no_network(monkeypatch):
@@ -24,7 +22,6 @@ def fixture_dir():
 
 
 @pytest.fixture
-def out(monkeypatch, tmp_path):
-    """Point the engine's output directory at a scratch directory."""
-    monkeypatch.setattr(brief, "OUT", tmp_path)
+def out(tmp_path):
+    """A scratch directory to pass as --out."""
     return tmp_path

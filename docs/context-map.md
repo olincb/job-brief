@@ -16,7 +16,7 @@ is added. The design and its reasons are in `design.md`; this is only a map.
 
 - `__init__.py` — package docstring only.
 - `__main__.py` — `python -m jobbrief`; hands off to `brief.main`.
-- `brief.py` — the whole v1 engine in one module: fetchers (one generator per source), `condense`, the ranking prompt assembly and Gemini call, `finish` into sheet rows, Markdown-to-HTML rendering, the heartbeat rule, Runs-row logging, and `init-sheet`.
+- `brief.py` — the whole engine in one module. Each stage is a function over values: fetchers (one generator per source), `condense`, `select_candidates`, `build_prompt`, `generate` (the one Gemini call, with retries and fallback), `finish`, `render`, the heartbeat rule, and `init_sheet` over gws. The subcommands at the bottom read files and write under `--out`.
 - `find_boards.py` — operator tool: turns company names into verified ATS slugs for `sources.base.json`.
 - `data/prompt.md` — instructions to the model: scoring rubric, brief layout, JSON contract.
 - `data/sources.base.json` — shared board slugs per ATS, Climatebase queries, and the whole-feed sources everyone runs against.

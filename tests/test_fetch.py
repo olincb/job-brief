@@ -2,7 +2,7 @@ import argparse
 import json
 
 from jobbrief import brief
-from jobbrief.brief import SEEN_HEADER, fetch_greenhouse, posting
+from jobbrief.brief import SEEN_HEADER, fetch_greenhouse, posting, select_candidates
 
 GRADLE_URL = "https://boards-api.greenhouse.io/v1/boards/gradle/jobs?content=true"
 
@@ -31,30 +31,38 @@ def test_unreachable_board_is_skipped_not_fatal(monkeypatch):
 
 GOOD_TITLES = ["Software Engineer, Platform", "Backend Engineer II"]
 BAD_TITLES = ["Software Engineering Manager", "Senior Staff Software Engineer", "Frontend Software Engineer", "Account Executive"]
+INCLUDE = ["software engineer", "backend"]
+EXCLUDE = ["manager", "senior staff", "frontend"]
 
 
-def fake_fetcher(slug):
-    for n, title in enumerate(GOOD_TITLES + BAD_TITLES):
-        yield posting("fake", slug, n, title, "Remote", f"https://example.com/jobs/{n}", None, "short description")
+def pool():
+    return [posting("fake", "board", n, title, "Remote", f"https://example.com/jobs/{n}", None, "short description")
+            for n, title in enumerate(GOOD_TITLES + BAD_TITLES)]
 
 
-def run_fetch(out, monkeypatch):
-    monkeypatch.setattr(brief, "FETCHERS", {"fake": fake_fetcher})
+def titles(candidates):
+    return [c["title"] for c in candidates]
+
+
+def test_title_filters_keep_good_titles_and_drop_bad():
+    assert titles(select_candidates(pool(), set(), INCLUDE, EXCLUDE, 3)) == GOOD_TITLES
+
+
+def test_empty_title_filter_keeps_every_title():
+    assert titles(select_candidates(pool(), set(), [], [], 3)) == GOOD_TITLES + BAD_TITLES
+
+
+def test_postings_already_seen_are_dropped():
+    seen = {"https://example.com/jobs/0"}
+    assert titles(select_candidates(pool(), seen, INCLUDE, EXCLUDE, 3)) == GOOD_TITLES[1:]
+
+
+def test_fetch_command_writes_candidates_for_the_given_filters(out, monkeypatch):
+    monkeypatch.setattr(brief, "FETCHERS", {"fake": lambda slug: iter(pool())})
     sources = out / "sources.json"
-    sources.write_text(json.dumps({
-        "fake": ["board"],
-        "title_filter": ["software engineer", "backend"],
-        "title_exclude": ["manager", "senior staff", "frontend"],
-    }))
-    brief.cmd_fetch(argparse.Namespace(sources=str(sources), person_sources="", seen=str(out / "seen.json"), lookback_days=3))
-    return [c["title"] for c in json.loads((out / "candidates.json").read_text())]
-
-
-def test_title_filters_keep_good_titles_and_drop_bad(out, monkeypatch):
-    assert run_fetch(out, monkeypatch) == GOOD_TITLES
-
-
-def test_postings_already_in_seen_are_dropped(out, monkeypatch):
+    sources.write_text(json.dumps({"fake": ["board"]}))
     seen = [["2026-09-01", "fake:board:0", "https://example.com/jobs/0"]]
     (out / "seen.json").write_text(json.dumps({"values": [SEEN_HEADER, *seen]}))
-    assert run_fetch(out, monkeypatch) == GOOD_TITLES[1:]
+    brief.cmd_fetch(argparse.Namespace(out=out, sources=str(sources), seen="", title_filter=INCLUDE, title_exclude=EXCLUDE, lookback_days=3))
+    assert titles(json.loads((out / "candidates.json").read_text())) == GOOD_TITLES[1:]
+    assert json.loads((out / "fetch_stats.json").read_text())["new_candidates"] == 1

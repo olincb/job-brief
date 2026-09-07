@@ -1,24 +1,22 @@
 #!/usr/bin/env python3
-"""Deterministic half of the daily job brief. Standard library only.
+"""Deterministic half of the job brief. Standard library only.
 
-Subcommands, in the order run.sh calls them:
+Every stage is a function that takes values and returns values: postings, sheet rows,
+profile text, a sheet id. The subcommands are thin wrappers that read those values from
+files and write results under --out (default ./out), so a run is reproducible from that
+directory alone:
 
-  fetch   sources.base.json + person sources + sheet dump -> out/candidates.json
-  prompt  prompt.md + profile.md + sheet dump + candidates -> out/prompt.txt
-  rank    out/prompt.txt -> Gemini API -> out/model.txt
-  finish  model output + candidates -> out/brief.md, out/postings_rows.json, out/seen_rows.json
-  render  out/brief.md -> out/brief.html, with a link to the tracking sheet
-  heartbeat  Runs tab dump -> "send" (and out/heartbeat.html) or "quiet"
-  log-run    out/ stats -> out/run_row.json, one row for the Runs tab
-  init-sheet create the sheet if config.env has no SHEET_ID, add any missing tab or header,
-             and share it with SHARE_WITH if that is set and not already done
+  fetch      sources + Seen dump + title filters -> candidates.json
+  prompt     template + profile + Postings dump + candidates -> prompt.txt
+  rank       prompt.txt -> Gemini API -> model.txt
+  finish     model output + candidates -> brief.md, postings_rows.json, seen_rows.json
+  render     brief.md -> brief.html, with a link to the tracking sheet
+  heartbeat  Runs dump -> "send" (and heartbeat.html) or "quiet"
+  log-run    stats under --out -> run_row.json, one row for the Runs tab
+  init-sheet create a sheet, or add missing tabs and headers to one, and share it
 
-Paths are per person: run.sh exports BRIEF_OUT, BRIEF_CONFIG, and BRIEF_PROFILE for
-the person under people/<name>/. Without them the defaults point at the repo root.
-
-The model only ranks and writes, in one API call. Fetching, dedup against the
-sheet, and building the rows to append all happen here so a run is
-reproducible and costs one request.
+The model only ranks and writes, in one API call. Fetching, dedup against the sheet, and
+building the rows to append all happen here so a run costs one request.
 """
 
 import argparse
@@ -34,11 +32,10 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
+from importlib.resources import files
 from pathlib import Path
 
-# Per-person paths. run.sh exports these; defaults keep single-person use working.
-ROOT = Path(__file__).resolve().parent.parent
-OUT = Path(os.environ.get("BRIEF_OUT") or ROOT / "out")
+DATA = files("jobbrief.data")  # packaged defaults: the prompt template and the shared board list
 
 # Sheet layout. Postings holds the picks and is edited by hand (status, notes).
 # Seen holds every candidate ever shown to the model so it is never re-scored.
@@ -93,6 +90,8 @@ SIGNAL_TIERS = [
                r"|familiar|strong (?:background|understanding|knowledge|experience|skills)|deep (?:understanding|knowledge|experience)"
                r"|degree|\bbs\b|\bms\b|phd|must|required|require\b|nice to have|bonus|preferred|\bplus\b|you have|you.ve"
                r"|you are|you.ll (?:need|bring)|we.re looking for|ideal candidate|track record", re.IGNORECASE),
+    # Stack mentions. Software vocabulary for now; this tier is what should come from the
+    # user's profile once condensing is per user.
     re.compile(r"python|rust|\bgo\b|golang|\bjava\b|c\+\+|typescript|kubernetes|\baws\b|gcp|azure|postgres|kafka"
                r"|terraform|distributed|microservice|api\b|sdk|compiler|runtime|linux", re.IGNORECASE),
 ]
@@ -337,44 +336,80 @@ def is_recent(iso, lookback_days):
     return posted >= datetime.now(timezone.utc) - timedelta(days=lookback_days)
 
 
-def cmd_fetch(args):
-    base = json.loads(Path(args.sources).read_text())
-    person = json.loads(Path(args.person_sources).read_text()) if args.person_sources else {}
-    # Shared boards plus the person's own; the person's keyword filters win.
-    sources = {ats: list(dict.fromkeys(base.get(ats, []) + person.get(ats, []))) for ats in FETCHERS}
-    title_ok = re.compile("|".join(person.get("title_filter") or base.get("title_filter", [])) or ".", re.IGNORECASE)
-    title_bad = re.compile("|".join(person.get("title_exclude") or base.get("title_exclude", [])) or "(?!)", re.IGNORECASE)
-    seen = {row["url"] for row in load_sheet_rows(args.seen)}
-    candidates = {}
+def packaged_or(path, name):
+    """A file the operator supplied, else the copy shipped inside the package."""
+    return Path(path).read_text() if path else DATA.joinpath(name).read_text()
+
+
+def title_matcher(include, exclude):
+    """The per-user title filters. A title must match one include pattern (any title when
+    the list is empty) and no exclude pattern. Both are case-insensitive regexes."""
+    ok = re.compile("|".join(include or []) or ".", re.IGNORECASE)
+    bad = re.compile("|".join(exclude or []) or "(?!)", re.IGNORECASE)
+    return lambda title: bool(ok.search(title)) and not bad.search(title)
+
+
+def fetch_all(sources):
+    """Every posting from every configured source. Fetch cost is per run, not per user:
+    the daily job calls this once and selects per user from the pool."""
     for ats, fetcher in FETCHERS.items():
         for slug in sources.get(ats, []):
-            for job in fetcher(slug):
-                if job["url"] in seen or not is_recent(job["posted_at"], args.lookback_days):
-                    continue
-                if title_ok.search(job["title"]) and not title_bad.search(job["title"]):
-                    candidates[job["id"]] = job  # overlapping queries can return the same posting
-    candidates = list(candidates.values())
+            yield from fetcher(slug)
+
+
+def select_candidates(postings, seen_urls, title_filter, title_exclude, lookback_days):
+    """One user's view of the pool: unseen, recent, and passing their title filters.
+    Overlapping sources can return the same posting, so the result is keyed by id."""
+    wanted = title_matcher(title_filter, title_exclude)
+    candidates = {}
+    for job in postings:
+        if job["url"] in seen_urls or not is_recent(job["posted_at"], lookback_days):
+            continue
+        if wanted(job["title"]):
+            candidates[job["id"]] = job
+    return list(candidates.values())
+
+
+def enrich(candidates):
+    """Fill in descriptions for sources whose list call lacks one, then condense every
+    snippet to the lines the profile filters on. Runs after selection so it is a handful
+    of requests per run."""
     for job in candidates:
-        enrich = ENRICHERS.get(job["id"].split(":")[0])
-        if enrich:
-            job["snippet"] = enrich(job) or job["snippet"]
+        fetch_description = ENRICHERS.get(job["id"].split(":")[0])
+        if fetch_description:
+            job["snippet"] = fetch_description(job) or job["snippet"]
         job["snippet"] = condense(job["snippet"])
-    (OUT / "candidates.json").write_text(json.dumps(candidates, indent=1))
-    (OUT / "fetch_stats.json").write_text(json.dumps({"new_candidates": len(candidates), "skipped_sources": SKIPPED}))
+    return candidates
+
+
+def cmd_fetch(args):
+    sources = json.loads(packaged_or(args.sources, "sources.base.json"))
+    seen = {row["url"] for row in load_sheet_rows(args.seen or args.out / "seen.json")}
+    candidates = enrich(select_candidates(fetch_all(sources), seen, args.title_filter, args.title_exclude, args.lookback_days))
+    (args.out / "candidates.json").write_text(json.dumps(candidates, indent=1))
+    (args.out / "fetch_stats.json").write_text(json.dumps({"new_candidates": len(candidates), "skipped_sources": SKIPPED}))
     print(f"{len(candidates)} new candidates, {len(SKIPPED)} sources skipped", file=sys.stderr)
 
 
-def cmd_prompt(args):
-    pipeline = load_sheet_rows(args.postings)
-    candidates = json.loads((OUT / "candidates.json").read_text())
-    text = "\n\n".join([
-        Path(args.prompt).read_text(),
-        f"Maximum picks: {args.max_picks}",
-        "## Candidate profile\n\n" + Path(args.profile).read_text(),
+def build_prompt(template, profile, pipeline, candidates, max_picks):
+    """The single request body's text: instructions, then the three blocks the template
+    names, in the order it names them."""
+    return "\n\n".join([
+        template,
+        f"Maximum picks: {max_picks}",
+        "## Candidate profile\n\n" + profile,
         "## Pipeline\n\n" + json.dumps(pipeline, indent=1),
         "## Candidates\n\n" + json.dumps(candidates, indent=1),
     ])
-    (OUT / "prompt.txt").write_text(text)
+
+
+def cmd_prompt(args):
+    text = build_prompt(
+        packaged_or(args.prompt, "prompt.md"), Path(args.profile).read_text(),
+        load_sheet_rows(args.postings or args.out / "postings.json"),
+        json.loads((args.out / "candidates.json").read_text()), args.max_picks,
+    )
+    (args.out / "prompt.txt").write_text(text)
 
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
@@ -413,28 +448,32 @@ def call_gemini(model, body, api_key, attempts):
     return None
 
 
-def cmd_rank(args):
-    """One generateContent call, with the retry budget split between the primary model and
-    a fallback. 503 "model is overloaded" clusters on whichever model launched most
-    recently and hits paid tiers too, so an older Flash is the reliable escape hatch."""
-    api_key = os.environ.get("GEMINI_API_KEY") or sys.exit("GEMINI_API_KEY is not set (see config.env)")
-    body = json.dumps({
-        "contents": [{"role": "user", "parts": [{"text": (OUT / "prompt.txt").read_text()}]}],
-        "generationConfig": {"responseMimeType": "application/json", "temperature": 0.2},
-    }).encode()
-    models = [args.model] + ([args.fallback_model] if args.fallback_model and args.fallback_model != args.model else [])
-    per_model = max(1, args.retries // len(models))
-    data = None
+def generate(prompt, models, api_key, retries, json_output=False):
+    """The one way the engine talks to the model. Tries each model in turn with the retry
+    budget split evenly, so callers need no retry logic of their own: ranking on the daily
+    run and drafting a profile at signup both come through here. 503 "model is overloaded"
+    clusters on whichever model launched most recently and hits paid tiers too, so an
+    older Flash as the fallback is the reliable escape hatch. Returns the model's text,
+    the model that served it, and the usage metadata."""
+    config = {"temperature": 0.2}
+    if json_output:
+        config["responseMimeType"] = "application/json"
+    body = json.dumps({"contents": [{"role": "user", "parts": [{"text": prompt}]}], "generationConfig": config}).encode()
+    per_model = max(1, retries // len(models))
     for model in models:
         data = call_gemini(model, body, api_key, per_model)
         if data:
-            break
-    if not data:
-        raise SystemExit(f"all {args.retries} attempts failed across {', '.join(models)}")
-    text = "".join(part.get("text", "") for part in data["candidates"][0]["content"]["parts"])
-    (OUT / "model.txt").write_text(text)
-    usage = data.get("usageMetadata", {})
-    (OUT / "rank_stats.json").write_text(json.dumps({"model": model, "tokens": usage.get("totalTokenCount", "")}))
+            text = "".join(part.get("text", "") for part in data["candidates"][0]["content"]["parts"])
+            return text, model, data.get("usageMetadata", {})
+    raise SystemExit(f"all {retries} attempts failed across {', '.join(models)}")
+
+
+def cmd_rank(args):
+    api_key = os.environ.get("GEMINI_API_KEY") or sys.exit("GEMINI_API_KEY is not set")
+    models = [args.model] + ([args.fallback_model] if args.fallback_model and args.fallback_model != args.model else [])
+    text, model, usage = generate((args.out / "prompt.txt").read_text(), models, api_key, args.retries, json_output=True)
+    (args.out / "model.txt").write_text(text)
+    (args.out / "rank_stats.json").write_text(json.dumps({"model": model, "tokens": usage.get("totalTokenCount", "")}))
     print(f"model {model}: {usage.get('promptTokenCount')} in, {usage.get('candidatesTokenCount')} out, "
           f"{usage.get('thoughtsTokenCount', 0)} thinking", file=sys.stderr)
 
@@ -447,14 +486,13 @@ def parse_model_json(raw):
     return json.loads(raw[start:end + 1])
 
 
-def cmd_finish(args):
-    today = datetime.now().strftime("%Y-%m-%d")
-    result = parse_model_json(Path(args.model_output).read_text())
-    candidates = {c["id"]: c for c in json.loads((OUT / "candidates.json").read_text())}
-
+def finish(result, candidates, today):
+    """The model's answer as the brief and the rows to append. A pick whose id is not a
+    real candidate is dropped rather than trusted."""
+    by_id = {c["id"]: c for c in candidates}
     postings_rows = []
     for pick in result.get("picks", []):
-        cand = candidates.get(pick["id"])
+        cand = by_id.get(pick["id"])
         if cand is None:
             print(f"model invented id {pick['id']}, dropping", file=sys.stderr)
             continue
@@ -462,11 +500,17 @@ def cmd_finish(args):
             today, cand["company"], cand["title"], cand["location"], cand["url"],
             pick.get("fit", ""), pick.get("reason", ""), pick.get("risk", ""), "", "",
         ])
-    seen_rows = [[today, c["id"], c["url"]] for c in candidates.values()]
+    seen_rows = [[today, c["id"], c["url"]] for c in candidates]
+    return result["brief_markdown"], postings_rows, seen_rows
 
-    (OUT / "brief.md").write_text(result["brief_markdown"])
-    (OUT / "postings_rows.json").write_text(json.dumps({"values": postings_rows}))
-    (OUT / "seen_rows.json").write_text(json.dumps({"values": seen_rows}))
+
+def cmd_finish(args):
+    result = parse_model_json(Path(args.model_output or args.out / "model.txt").read_text())
+    candidates = json.loads((args.out / "candidates.json").read_text())
+    brief_markdown, postings_rows, seen_rows = finish(result, candidates, datetime.now().strftime("%Y-%m-%d"))
+    (args.out / "brief.md").write_text(brief_markdown)
+    (args.out / "postings_rows.json").write_text(json.dumps({"values": postings_rows}))
+    (args.out / "seen_rows.json").write_text(json.dumps({"values": seen_rows}))
     print(f"{len(postings_rows)} picks, {len(seen_rows)} marked seen", file=sys.stderr)
 
 
@@ -536,13 +580,12 @@ def markdown_to_html(markdown):
     return "\n".join(out)
 
 
-def backlog_html(postings_path):
+def backlog_html(postings_rows):
     """One line: how many picks already in the sheet still have a blank status, and how
     old the oldest is. Computed here, not by the model, so the number is exact."""
-    rows = load_sheet_rows(postings_path)
-    if not rows:
+    if not postings_rows:
         return ""
-    pending = [r for r in rows if not r.get("status", "").strip()]
+    pending = [r for r in postings_rows if not r.get("status", "").strip()]
     if not pending:
         line = "Every pick in the sheet has a status."
     else:
@@ -551,51 +594,67 @@ def backlog_html(postings_path):
     return f'<p style="{STYLE["footer"]}">{line}</p>'
 
 
-def cmd_render(args):
-    body = markdown_to_html((OUT / "brief.md").read_text()) + backlog_html(args.postings)
+def render(brief_markdown, sheet_id, postings_rows):
+    """The email body: the brief, the backlog line, and a link to the tracking sheet."""
+    body = markdown_to_html(brief_markdown) + backlog_html(postings_rows)
     footer = ""
-    if args.sheet_id:
-        url = f"https://docs.google.com/spreadsheets/d/{args.sheet_id}"
+    if sheet_id:
+        url = f"https://docs.google.com/spreadsheets/d/{sheet_id}"
         footer = (f'<div style="{STYLE["footer"]}">Tracking sheet: <a style="{STYLE["a"]}" href="{url}">{url}</a>'
                   f"<br>Mark status on the Postings tab to change what the next brief says.</div>")
-    (OUT / "brief.html").write_text(f'<div style="{STYLE["body"]}">{body}{footer}</div>')
+    return f'<div style="{STYLE["body"]}">{body}{footer}</div>'
+
+
+def cmd_render(args):
+    postings = load_sheet_rows(args.postings or args.out / "postings.json")
+    (args.out / "brief.html").write_text(render((args.out / "brief.md").read_text(), args.sheet_id, postings))
+
+
+def days_since_email(runs_rows, today):
+    """Days since the last run that emailed, according to the Runs tab, or None when no
+    email is on record."""
+    emailed = [row["date"] for row in runs_rows if row.get("emailed") == "yes" and row.get("date")]
+    last = max((datetime.fromisoformat(d).date() for d in emailed), default=None)
+    return (today - last).days if last else None
+
+
+def heartbeat_html(quiet_days, stats, postings_rows):
+    skipped = stats.get("skipped_sources", [])
+    since = f"{quiet_days} days since the last email" if quiet_days is not None else "no email on record yet"
+    sources = f"{len(skipped)} sources failed to fetch:<br>" + "<br>".join(html.escape(u) for u in skipped) if skipped else "all sources reachable"
+    return (f'<div style="{STYLE["body"]}"><p style="{STYLE["p"]}">Still running. {since}, nothing new to show today.</p>'
+            f'<p style="{STYLE["p"]}">Today: {stats.get("new_candidates", 0)} new candidates after dedup, {sources}.</p>'
+            f'{backlog_html(postings_rows)}</div>')
+
+
+def read_json(path, default):
+    return json.loads(path.read_text()) if path.exists() else default
 
 
 def cmd_heartbeat(args):
     """Decide whether a quiet run should still say hello. Sends when no email has gone
     out in `--days` days according to the Runs tab, so a single quiet day is silent but
     silence never lasts long enough to be mistaken for breakage."""
-    today = datetime.now().date()
-    emailed = [row["date"] for row in load_sheet_rows(args.runs) if row.get("emailed") == "yes" and row.get("date")]
-    last = max((datetime.fromisoformat(d).date() for d in emailed), default=None)
-    quiet_days = (today - last).days if last else None
-    if last and quiet_days < args.days:
+    quiet_days = days_since_email(load_sheet_rows(args.runs or args.out / "runs.json"), datetime.now().date())
+    if quiet_days is not None and quiet_days < args.days:
         print("quiet")
         return
-    stats = json.loads((OUT / "fetch_stats.json").read_text()) if (OUT / "fetch_stats.json").exists() else {}
-    skipped = stats.get("skipped_sources", [])
-    since = f"{quiet_days} days since the last email" if last else "no email on record yet"
-    sources = f"{len(skipped)} sources failed to fetch:<br>" + "<br>".join(html.escape(u) for u in skipped) if skipped else "all sources reachable"
-    body = (f'<div style="{STYLE["body"]}"><p style="{STYLE["p"]}">Still running. {since}, nothing new to show today.</p>'
-            f'<p style="{STYLE["p"]}">Today: {stats.get("new_candidates", 0)} new candidates after dedup, {sources}.</p>'
-            f'{backlog_html(args.postings)}</div>')
-    (OUT / "heartbeat.html").write_text(body)
+    stats = read_json(args.out / "fetch_stats.json", {})
+    postings = load_sheet_rows(args.postings or args.out / "postings.json")
+    (args.out / "heartbeat.html").write_text(heartbeat_html(quiet_days, stats, postings))
     print("send")
 
 
 def cmd_log_run(args):
-    stats = json.loads((OUT / "fetch_stats.json").read_text()) if (OUT / "fetch_stats.json").exists() else {}
-    picks_file = OUT / "postings_rows.json"
-    picks = len(json.loads(picks_file.read_text())["values"]) if picks_file.exists() else 0
-    rank_file = OUT / "rank_stats.json"
-    rank = json.loads(rank_file.read_text()) if rank_file.exists() else {}
+    stats = read_json(args.out / "fetch_stats.json", {})
+    picks = len(read_json(args.out / "postings_rows.json", {"values": []})["values"])
+    rank_stats = read_json(args.out / "rank_stats.json", {})
     row = [datetime.now().strftime("%Y-%m-%d"), stats.get("new_candidates", ""), picks,
-           len(stats.get("skipped_sources", [])), args.outcome, args.emailed, rank.get("model", ""), rank.get("tokens", "")]
-    (OUT / "run_row.json").write_text(json.dumps({"values": [row]}))
+           len(stats.get("skipped_sources", [])), args.outcome, args.emailed, rank_stats.get("model", ""), rank_stats.get("tokens", "")]
+    (args.out / "run_row.json").write_text(json.dumps({"values": [row]}))
 
 
 TABS = {"Postings": POSTINGS_HEADER, "Seen": SEEN_HEADER, "Runs": RUNS_HEADER}
-CONFIG = Path(os.environ.get("BRIEF_CONFIG") or ROOT / "config.env")
 
 
 def gws(*args):
@@ -606,41 +665,18 @@ def gws(*args):
     return json.loads(result.stdout) if result.stdout.strip() else {}
 
 
-def read_config_value(key):
-    if not CONFIG.exists():
-        return ""
-    match = re.search(rf"^{key}=([^#\n]*)", CONFIG.read_text(), re.MULTILINE)
-    return match.group(1).strip().strip('"') if match else ""
+def create_sheet(title):
+    created = gws("sheets", "spreadsheets", "create", "--json", json.dumps({
+        "properties": {"title": title},
+        "sheets": [{"properties": {"title": tab}} for tab in TABS],
+    }))
+    return created["spreadsheetId"]
 
 
-def write_config_value(key, value):
-    text = CONFIG.read_text() if CONFIG.exists() else ""
-    if re.search(rf"^{key}=", text, re.MULTILINE):
-        text = re.sub(rf"^{key}=.*$", f"{key}={value}", text, flags=re.MULTILINE)
-    else:
-        if text and not text.endswith("\n"):
-            text += "\n"  # hand-edited files often lack a final newline
-        text += f"{key}={value}\n"
-    CONFIG.write_text(text)
-
-
-def cmd_init_sheet(args):
-    """Idempotent. Creates the spreadsheet only when config.env has no SHEET_ID; on every
-    run adds whichever of the three tabs are missing and writes any missing header row.
-    Safe to rerun after upgrading, e.g. when a new tab is introduced."""
-    sheet_id = args.sheet_id or read_config_value("SHEET_ID")
-    if not sheet_id:
-        # Title by person when config lives under people/<name>/, else the single-person name.
-        person = CONFIG.parent.name
-        title = f"Job Brief - {person}" if CONFIG.parent.parent.name == "people" else "Job Brief"
-        created = gws("sheets", "spreadsheets", "create", "--json", json.dumps({
-            "properties": {"title": title},
-            "sheets": [{"properties": {"title": tab}} for tab in TABS],
-        }))
-        sheet_id = created["spreadsheetId"]
-        write_config_value("SHEET_ID", sheet_id)
-        print(f"created spreadsheet {sheet_id} and wrote SHEET_ID to config.env")
-
+def ensure_layout(sheet_id):
+    """Add whichever of the three tabs are missing and write any header row that does not
+    match the current columns. Row 1 is ours alone, so rewriting it is safe; this is how a
+    new column reaches an existing sheet, and older rows simply have a blank in it."""
     meta = gws("sheets", "spreadsheets", "get", "--params", json.dumps({"spreadsheetId": sheet_id}))
     existing = {sheet["properties"]["title"] for sheet in meta.get("sheets", [])}
     for tab in TABS:
@@ -648,21 +684,28 @@ def cmd_init_sheet(args):
             gws("sheets", "spreadsheets", "batchUpdate", "--params", json.dumps({"spreadsheetId": sheet_id}),
                 "--json", json.dumps({"requests": [{"addSheet": {"properties": {"title": tab}}}]}))
             print(f"added tab {tab}")
-
     for tab, header in TABS.items():
         first_row = gws("sheets", "spreadsheets", "values", "get",
                         "--params", json.dumps({"spreadsheetId": sheet_id, "range": f"{tab}!1:1"})).get("values", [[]])
         if first_row and first_row[0] == header:
             continue
-        # Row 1 is ours alone, so rewriting it is safe. This is how a new column reaches
-        # an existing sheet; older rows simply have a blank in that column.
         gws("sheets", "spreadsheets", "values", "update",
             "--params", json.dumps({"spreadsheetId": sheet_id, "range": f"{tab}!A1", "valueInputOption": "RAW"}),
             "--json", json.dumps({"values": [header]}))
         print(f"wrote header row for {tab}" if not first_row[0] else f"updated header row for {tab}")
-    share_with = read_config_value("SHARE_WITH")
-    if share_with:
-        share_sheet(sheet_id, share_with)
+
+
+def cmd_init_sheet(args):
+    """Idempotent. Creates the spreadsheet when no --sheet-id is given, and on every run
+    brings the tabs and headers up to date and shares with --share-with if not already
+    done. Safe to rerun after upgrading, e.g. when a new tab is introduced."""
+    sheet_id = args.sheet_id
+    if not sheet_id:
+        sheet_id = create_sheet(args.title)
+        print(f"created spreadsheet {sheet_id}")
+    ensure_layout(sheet_id)
+    if args.share_with:
+        share_sheet(sheet_id, args.share_with)
     print(f"ready: https://docs.google.com/spreadsheets/d/{sheet_id}")
 
 
@@ -683,56 +726,61 @@ def share_sheet(sheet_id, email):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(prog="jobbrief", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="cmd", required=True)
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--out", type=Path, default=Path("out"), help="directory for this run's files (default: ./out)")
 
-    p = sub.add_parser("fetch")
-    p.add_argument("--sources", default="sources.base.json", help="shared board list")
-    p.add_argument("--person-sources", default="", help="this person's extra boards and keyword filters")
-    p.add_argument("--seen", default=str(OUT / "seen.json"), help="gws dump of the Seen tab")
+    p = sub.add_parser("fetch", parents=[common])
+    p.add_argument("--sources", default="", help="board list JSON; default is the one shipped in the package")
+    p.add_argument("--title-filter", action="append", metavar="REGEX", help="keep titles matching any; repeatable")
+    p.add_argument("--title-exclude", action="append", metavar="REGEX", help="drop titles matching any; repeatable")
+    p.add_argument("--seen", default="", help="gws dump of the Seen tab (default: <out>/seen.json)")
     p.add_argument("--lookback-days", type=int, default=3)
     p.set_defaults(func=cmd_fetch)
 
-    p = sub.add_parser("prompt")
-    p.add_argument("--prompt", default="prompt.md")
-    p.add_argument("--profile", default=os.environ.get("BRIEF_PROFILE") or "profile.md")
-    p.add_argument("--postings", default=str(OUT / "postings.json"), help="gws dump of the Postings tab")
+    p = sub.add_parser("prompt", parents=[common])
+    p.add_argument("--prompt", default="", help="instruction template; default is the one shipped in the package")
+    p.add_argument("--profile", required=True, help="the user's prose profile, as a file")
+    p.add_argument("--postings", default="", help="gws dump of the Postings tab (default: <out>/postings.json)")
     p.add_argument("--max-picks", type=int, default=10)
     p.set_defaults(func=cmd_prompt)
 
-    p = sub.add_parser("rank")
-    p.add_argument("--model", default=os.environ.get("GEMINI_MODEL") or "gemini-3.8-flash")
-    p.add_argument("--fallback-model", default=os.environ.get("GEMINI_FALLBACK_MODEL", "gemini-3.5-flash"))
-    p.add_argument("--retries", type=int, default=int(os.environ.get("GEMINI_RETRIES") or 8),
-                   help="total attempts, split evenly between the primary and fallback models")
+    p = sub.add_parser("rank", parents=[common])
+    p.add_argument("--model", default="gemini-3.8-flash")
+    p.add_argument("--fallback-model", default="gemini-3.5-flash")
+    p.add_argument("--retries", type=int, default=8, help="total attempts, split evenly between the primary and fallback models")
     p.set_defaults(func=cmd_rank)
 
-    p = sub.add_parser("finish")
-    p.add_argument("--model-output", default=str(OUT / "model.txt"))
+    p = sub.add_parser("finish", parents=[common])
+    p.add_argument("--model-output", default="", help="(default: <out>/model.txt)")
     p.set_defaults(func=cmd_finish)
 
-    p = sub.add_parser("render")
-    p.add_argument("--sheet-id", default=os.environ.get("SHEET_ID", ""))
-    p.add_argument("--postings", default=str(OUT / "postings.json"), help="gws dump of the Postings tab")
+    p = sub.add_parser("render", parents=[common])
+    p.add_argument("--sheet-id", default="", help="tracking sheet to link in the footer")
+    p.add_argument("--postings", default="", help="gws dump of the Postings tab (default: <out>/postings.json)")
     p.set_defaults(func=cmd_render)
 
-    p = sub.add_parser("heartbeat")
-    p.add_argument("--runs", default=str(OUT / "runs.json"), help="gws dump of the Runs tab")
-    p.add_argument("--postings", default=str(OUT / "postings.json"), help="gws dump of the Postings tab")
+    p = sub.add_parser("heartbeat", parents=[common])
+    p.add_argument("--runs", default="", help="gws dump of the Runs tab (default: <out>/runs.json)")
+    p.add_argument("--postings", default="", help="gws dump of the Postings tab (default: <out>/postings.json)")
     p.add_argument("--days", type=int, default=4)
     p.set_defaults(func=cmd_heartbeat)
 
-    p = sub.add_parser("log-run")
+    p = sub.add_parser("log-run", parents=[common])
     p.add_argument("--outcome", required=True, choices=["sent", "quiet", "heartbeat", "failed"])
     p.add_argument("--emailed", required=True, choices=["yes", "no"])
     p.set_defaults(func=cmd_log_run)
 
     p = sub.add_parser("init-sheet")
-    p.add_argument("--sheet-id", default="", help="override the SHEET_ID in config.env")
+    p.add_argument("--sheet-id", default="", help="existing sheet to bring up to date; omit to create one")
+    p.add_argument("--title", default="Job Brief", help="title for a newly created sheet")
+    p.add_argument("--share-with", default="", metavar="EMAIL", help="grant this Google account edit access")
     p.set_defaults(func=cmd_init_sheet)
 
-    OUT.mkdir(exist_ok=True)
     args = parser.parse_args()
+    if hasattr(args, "out"):
+        args.out.mkdir(parents=True, exist_ok=True)
     args.func(args)
 
 

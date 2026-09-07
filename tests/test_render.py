@@ -1,8 +1,6 @@
-import argparse
 import re
 
-from jobbrief import brief
-from jobbrief.brief import markdown_to_html
+from jobbrief.brief import markdown_to_html, render
 
 
 def test_numbered_picks_stay_one_list_across_blank_lines(fixture_dir):
@@ -20,8 +18,12 @@ def test_links_and_bold_render(fixture_dir):
     assert re.search(r'<a [^>]*href="https://example.com/jobs/2">Posting</a>', html)
 
 
-def test_render_appends_sheet_link_footer(out, fixture_dir):
-    (out / "brief.md").write_text((fixture_dir / "brief.md").read_text())
-    brief.cmd_render(argparse.Namespace(sheet_id="sample-sheet-id", postings=str(out / "postings.json")))
-    html = (out / "brief.html").read_text()
+def test_render_appends_sheet_link_footer(fixture_dir):
+    html = render((fixture_dir / "brief.md").read_text(), "sample-sheet-id", [])
     assert 'href="https://docs.google.com/spreadsheets/d/sample-sheet-id"' in html
+
+
+def test_render_counts_picks_without_a_status(fixture_dir):
+    rows = [{"date_seen": "2026-08-20", "status": ""}, {"date_seen": "2026-08-28", "status": " "}, {"date_seen": "2026-08-01", "status": "skip"}]
+    html = render((fixture_dir / "brief.md").read_text(), "", rows)
+    assert "2 earlier picks still have no status</strong>, oldest from 2026-08-20" in html
