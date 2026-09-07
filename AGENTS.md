@@ -61,8 +61,8 @@ separate private repo and is never referenced here by value.
 
 - `docs/design.md` — architecture, flows, decisions and their reasons.
 - `docs/questionnaire.md` — the intake form users fill in at signup.
-- `docs/context-map.md` — one line per module and what it owns. Keep it
-  current when files move.
+- `docs/context-map.md` — one line per file and what it owns. Update it in
+  the same change whenever a file moves or a module is added.
 - `jobbrief/` — the package. See the context map.
 - `tests/`, `tests/fixtures/` — pytest, recorded responses. `tests/README.md`
   covers the layout and how to re-record.
