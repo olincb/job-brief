@@ -88,11 +88,15 @@ issue instead.
   body.
 - Run `python -m pytest` before calling anything done. It runs offline in
   under a second. Recording fixtures is a separate step; see `tests/README.md`.
-- Commit to `main`. No branches or pull requests unless asked; with one
-  contributor they are ceremony. Close the issue from the commit body with
-  `Closes #n`, and reference it with `#n` in earlier commits of a
-  multi-commit task. What would have been a PR description goes in the
-  commit body: why, not what.
+- Where work lands depends on how closely the operator is watching, not
+  on its size. When the operator is approving each commit as it happens,
+  commit straight to `main`; a pull request would be ceremony. When the
+  operator has handed over a task to run with little oversight, work on a
+  branch and open a pull request so there is one diff to read before it
+  lands. If it is unclear which mode a session is in, ask at the start.
+  Either way, close the issue from the commit or PR body with `Closes #n`,
+  reference it with `#n` in earlier commits, and put the why in the body,
+  not the what.
 - Small commits, conventional messages (`feat:`, `fix:`, `docs:`,
   `refactor:`, `test:`). No amending. Do not commit or push without the
   operator's explicit okay.
