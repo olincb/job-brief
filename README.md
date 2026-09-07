@@ -17,4 +17,13 @@ The architecture, flows, and every design decision with its reasons are in
 start at [`AGENTS.md`](AGENTS.md). This repo is the engine; an operator's
 deployment lives in a separate private repo with its own runbook.
 
+## Install
+
+```
+pip install git+https://github.com/olincb/job-brief@main
+python -m jobbrief --help
+```
+
+Standard library only; Python 3.11 or newer.
+
 Status: design complete, implementation starting. Work is tracked in Issues.

@@ -216,3 +216,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Run outputs (candidates, prompts, rendered briefs)
+out/
