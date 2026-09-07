@@ -29,10 +29,6 @@ def fake_gws(monkeypatch, sheet_id, existing_tabs, headers):
     return calls
 
 
-def added_tabs(calls):
-    return [json.loads(c[c.index("--json") + 1])["requests"][0]["addSheet"]["properties"]["title"] for c in calls if "batchUpdate" in c]
-
-
 def header_writes(calls):
     return [json.loads(c[c.index("--params") + 1])["range"].split("!")[0] for c in calls if c[:4] == ("sheets", "spreadsheets", "values", "update")]
 
@@ -50,7 +46,8 @@ def test_init_sheet_upgrades_an_existing_sheet_in_place(monkeypatch):
     calls = fake_gws(monkeypatch, "unused", ["Postings"], {"Postings": POSTINGS_HEADER})
     cli.cmd_init_sheet(argparse.Namespace(sheet_id="existing-id", title="Job Brief", share_with=""))
     assert not any("create" in c for c in calls)
-    assert added_tabs(calls) == ["Seen", "Runs"]
+    added = [json.loads(c[c.index("--json") + 1])["requests"][0]["addSheet"]["properties"]["title"] for c in calls if "batchUpdate" in c]
+    assert added == ["Seen", "Runs"]
     assert header_writes(calls) == ["Seen", "Runs"]
 
 

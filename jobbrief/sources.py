@@ -295,31 +295,17 @@ def is_recent(iso, lookback_days):
     return posted >= datetime.now(timezone.utc) - timedelta(days=lookback_days)
 
 
-def title_matcher(include, exclude):
-    """The per-user title filters. A title must match one include pattern (any title when
-    the list is empty) and no exclude pattern. Both are case-insensitive regexes."""
-    ok = re.compile("|".join(include or []) or ".", re.IGNORECASE)
-    bad = re.compile("|".join(exclude or []) or "(?!)", re.IGNORECASE)
-    return lambda title: bool(ok.search(title)) and not bad.search(title)
-
-
-def fetch_all(sources):
-    """Every posting from every configured source. Fetch cost is per run, not per user:
-    the daily job calls this once and selects per user from the pool."""
-    for ats, fetcher in FETCHERS.items():
-        for slug in sources.get(ats, []):
-            yield from fetcher(slug)
-
-
 def select_candidates(postings, seen_urls, title_filter, title_exclude, lookback_days):
-    """One user's view of the pool: unseen, recent, and passing their title filters.
+    """One user's view of the pool: unseen, recent, and passing their title filters. A
+    title must match one filter pattern and no exclude pattern, case-insensitively.
     Overlapping sources can return the same posting, so the result is keyed by id."""
-    wanted = title_matcher(title_filter, title_exclude)
+    title_ok = re.compile("|".join(title_filter or []) or ".", re.IGNORECASE)
+    title_bad = re.compile("|".join(title_exclude or []) or "(?!)", re.IGNORECASE)
     candidates = {}
     for job in postings:
         if job["url"] in seen_urls or not is_recent(job["posted_at"], lookback_days):
             continue
-        if wanted(job["title"]):
+        if title_ok.search(job["title"]) and not title_bad.search(job["title"]):
             candidates[job["id"]] = job
     return list(candidates.values())
 

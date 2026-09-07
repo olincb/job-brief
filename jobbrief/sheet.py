@@ -46,18 +46,18 @@ def gws(*args):
     return json.loads(result.stdout) if result.stdout.strip() else {}
 
 
-def create_sheet(title):
-    created = gws("sheets", "spreadsheets", "create", "--json", json.dumps({
-        "properties": {"title": title},
-        "sheets": [{"properties": {"title": tab}} for tab in TABS],
-    }))
-    return created["spreadsheetId"]
-
-
-def ensure_layout(sheet_id):
-    """Add whichever of the three tabs are missing and write any header row that does not
-    match the current columns. Row 1 is ours alone, so rewriting it is safe; this is how a
-    new column reaches an existing sheet, and older rows simply have a blank in it."""
+def init_sheet(sheet_id, title):
+    """Create the spreadsheet when no id is given. Either way, add whichever of the three
+    tabs are missing and write any header row that does not match the current columns.
+    Row 1 is ours alone, so rewriting it is safe; this is how a new column reaches an
+    existing sheet, and older rows simply have a blank in it. Returns the sheet id."""
+    if not sheet_id:
+        created = gws("sheets", "spreadsheets", "create", "--json", json.dumps({
+            "properties": {"title": title},
+            "sheets": [{"properties": {"title": tab}} for tab in TABS],
+        }))
+        sheet_id = created["spreadsheetId"]
+        print(f"created spreadsheet {sheet_id}")
     meta = gws("sheets", "spreadsheets", "get", "--params", json.dumps({"spreadsheetId": sheet_id}))
     existing = {sheet["properties"]["title"] for sheet in meta.get("sheets", [])}
     for tab in TABS:
@@ -74,6 +74,7 @@ def ensure_layout(sheet_id):
             "--params", json.dumps({"spreadsheetId": sheet_id, "range": f"{tab}!A1", "valueInputOption": "RAW"}),
             "--json", json.dumps({"values": [header]}))
         print(f"wrote header row for {tab}" if not first_row[0] else f"updated header row for {tab}")
+    return sheet_id
 
 
 def share_sheet(sheet_id, email):

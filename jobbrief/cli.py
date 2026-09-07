@@ -25,22 +25,18 @@ from pathlib import Path
 from jobbrief.llm import generate, parse_model_json
 from jobbrief.rank import build_prompt, finish
 from jobbrief.render import heartbeat_html, render
-from jobbrief.sheet import create_sheet, days_since_email, ensure_layout, load_sheet_rows, share_sheet
-from jobbrief.sources import SKIPPED, enrich, fetch_all, select_candidates
+from jobbrief.sheet import days_since_email, init_sheet, load_sheet_rows, share_sheet
+from jobbrief.sources import FETCHERS, SKIPPED, enrich, select_candidates
 
 
-DATA = files("jobbrief.data")  # packaged defaults: the prompt template and the shared board list
-
-
-def packaged_or(path, name):
-    """A file the operator supplied, else the copy shipped inside the package."""
-    return Path(path).read_text() if path else DATA.joinpath(name).read_text()
+DATA = files("jobbrief.data")  # packaged defaults: the prompt template and the shared board list, unless a flag overrides
 
 
 def cmd_fetch(args):
-    sources = json.loads(packaged_or(args.sources, "sources.base.json"))
+    sources = json.loads(Path(args.sources).read_text() if args.sources else DATA.joinpath("sources.base.json").read_text())
     seen = {row["url"] for row in load_sheet_rows(args.seen or args.out / "seen.json")}
-    candidates = enrich(select_candidates(fetch_all(sources), seen, args.title_filter, args.title_exclude, args.lookback_days))
+    pool = (job for ats, fetcher in FETCHERS.items() for slug in sources.get(ats, []) for job in fetcher(slug))
+    candidates = enrich(select_candidates(pool, seen, args.title_filter, args.title_exclude, args.lookback_days))
     (args.out / "candidates.json").write_text(json.dumps(candidates, indent=1))
     (args.out / "fetch_stats.json").write_text(json.dumps({"new_candidates": len(candidates), "skipped_sources": SKIPPED}))
     print(f"{len(candidates)} new candidates, {len(SKIPPED)} sources skipped", file=sys.stderr)
@@ -48,7 +44,7 @@ def cmd_fetch(args):
 
 def cmd_prompt(args):
     text = build_prompt(
-        packaged_or(args.prompt, "prompt.md"), Path(args.profile).read_text(),
+        Path(args.prompt).read_text() if args.prompt else DATA.joinpath("prompt.md").read_text(), Path(args.profile).read_text(),
         load_sheet_rows(args.postings or args.out / "postings.json"),
         json.loads((args.out / "candidates.json").read_text()), args.max_picks,
     )
@@ -108,14 +104,8 @@ def cmd_log_run(args):
 
 
 def cmd_init_sheet(args):
-    """Idempotent. Creates the spreadsheet when no --sheet-id is given, and on every run
-    brings the tabs and headers up to date and shares with --share-with if not already
-    done. Safe to rerun after upgrading, e.g. when a new tab is introduced."""
-    sheet_id = args.sheet_id
-    if not sheet_id:
-        sheet_id = create_sheet(args.title)
-        print(f"created spreadsheet {sheet_id}")
-    ensure_layout(sheet_id)
+    """Idempotent: safe to rerun after upgrading, e.g. when a new tab is introduced."""
+    sheet_id = init_sheet(args.sheet_id, args.title)
     if args.share_with:
         share_sheet(sheet_id, args.share_with)
     print(f"ready: https://docs.google.com/spreadsheets/d/{sheet_id}")

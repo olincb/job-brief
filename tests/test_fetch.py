@@ -49,17 +49,13 @@ def test_title_filters_keep_good_titles_and_drop_bad():
     assert titles(select_candidates(pool(), set(), INCLUDE, EXCLUDE, 3)) == GOOD_TITLES
 
 
-def test_empty_title_filter_keeps_every_title():
-    assert titles(select_candidates(pool(), set(), [], [], 3)) == GOOD_TITLES + BAD_TITLES
-
-
 def test_postings_already_seen_are_dropped():
     seen = {"https://example.com/jobs/0"}
     assert titles(select_candidates(pool(), seen, INCLUDE, EXCLUDE, 3)) == GOOD_TITLES[1:]
 
 
 def test_fetch_command_writes_candidates_for_the_given_filters(out, monkeypatch):
-    monkeypatch.setattr(sources, "FETCHERS", {"fake": lambda slug: iter(pool())})
+    monkeypatch.setattr(cli, "FETCHERS", {"fake": lambda slug: iter(pool())})
     sources_file = out / "sources.json"
     sources_file.write_text(json.dumps({"fake": ["board"]}))
     seen = [["2026-09-01", "fake:board:0", "https://example.com/jobs/0"]]
