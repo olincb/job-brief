@@ -12,8 +12,13 @@ over recorded bodies.
 - `test_*.py`: one module per concern. Condense; the Markdown renderer;
   the heartbeat rule; fetching (one fetcher against a recording, title filters,
   dedup against the Seen tab); ranking (prompt assembly, the model call's
-  fallback budget against a fake `call_gemini`, picks into rows); and
-  init-sheet against a fake `gws` that records the calls it would make.
+  fallback budget against a fake `call_gemini`, picks into rows); the
+  Sheets/Drive client (init_sheet lays the six tabs and never writes Profile,
+  and share_sheet, against a fake request function that records the calls they
+  would make); the registry selection
+  (inactive rows dropped, `ONLY_USERS` scoping, case-insensitive); and the
+  mail message builder and failure-notice bodies (headers, multipart order,
+  no address), which never open an SMTP connection.
 - `fixtures/<source>/<slug>.json`: a board's response saved unmodified.
 - `fixtures/posting.txt`: one posting as `condense` receives it, after HTML is
   stripped. Chosen because it states years of experience, remote policy, and a

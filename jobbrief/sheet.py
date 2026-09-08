@@ -1,30 +1,67 @@
-"""The tracking sheet: tab layout, reading a gws dump of a tab, the heartbeat rule over
-Runs rows, and creating or upgrading a sheet through the gws CLI."""
+"""The tracking sheet: tab layout, the heartbeat rule over Runs rows, and a small client
+for the Sheets and Drive REST APIs. Every request is authenticated with a bearer token so
+the same functions serve the service account (daily job) and a user's short-lived
+drive.file token (signup)."""
 
 import json
-import subprocess
+import time
+import urllib.parse
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 
 
-# Sheet layout. Postings holds the picks and is edited by hand (status, notes).
+# Sheet layout. Answers is the raw questionnaire, one column per question in
+# docs/questionnaire.md order, then the submit date; resume holds the uploaded filename,
+# never the bytes. Postings holds the picks and is edited by hand (status, notes).
 # Seen holds every candidate ever shown to the model so it is never re-scored.
+ANSWERS_HEADER = ["field", "experience", "resume", "tools", "certifications", "work_types",
+                  "search_titles", "exclude_titles", "employer_types", "entry_level", "location",
+                  "terms", "physical", "pay", "avoid_employers", "about_you", "about_want",
+                  "stretch", "per_listing", "checked_sources", "submitted"]
+# Settings is key/value: title_filter, title_exclude (one regex per line in the cell),
+# lookback_days, max_picks. Signup writes the rows; init only lays the header. Frequency
+# and active live in the registry, not here, so the run can skip a non-send day without
+# opening the sheet.
+SETTINGS_HEADER = ["key", "value"]
 POSTINGS_HEADER = ["date_seen", "company", "title", "location", "url", "fit", "reason", "risk", "status", "notes"]
 SEEN_HEADER = ["date_seen", "id", "url"]
 # Runs is the health log: one row per run. The heartbeat reads it to decide whether
-# enough quiet days have passed to say "still here".
-RUNS_HEADER = ["date", "candidates", "picks", "skipped_sources", "outcome", "emailed", "model", "tokens"]
+# enough quiet days have passed to say "still here". sources is picks per source
+# ("greenhouse:3 hackernews:1"); note carries "capped", "empty filter", or a failure message.
+RUNS_HEADER = ["date", "candidates", "picks", "skipped_sources", "outcome", "emailed",
+               "model", "tokens", "sources", "note"]
+
+# Six tabs, in the order the design's Shape table lists them. Profile is a single prose
+# cell the user edits, so it has no header row: init creates the tab but never writes A1,
+# which would clobber the profile on an existing sheet.
+TABS = {
+    "Answers": ANSWERS_HEADER,
+    "Profile": [],
+    "Settings": SETTINGS_HEADER,
+    "Postings": POSTINGS_HEADER,
+    "Seen": SEEN_HEADER,
+    "Runs": RUNS_HEADER,
+}
+
+SHEETS = "https://sheets.googleapis.com/v4/spreadsheets"
+DRIVE = "https://www.googleapis.com/drive/v3/files"
 
 
-def load_sheet_rows(path):
-    """A `gws sheets spreadsheets values get` dump -> list of dicts keyed by the header row."""
-    if not Path(path).exists():
-        return []
-    values = json.loads(Path(path).read_text()).get("values", [])
+def _rows_by_header(values):
+    """A tab's raw value grid -> list of dicts keyed by the header row, short rows padded."""
     if len(values) < 2:
         return []
     header, rows = values[0], values[1:]
     return [dict(zip(header, row + [""] * (len(header) - len(row)))) for row in rows]
+
+
+def load_sheet_rows(path):
+    """A saved `values.get` dump on disk -> rows keyed by the header. The staged CLI reads
+    tab dumps from files; the live equivalent is read_tab."""
+    if not Path(path).exists():
+        return []
+    return _rows_by_header(json.loads(Path(path).read_text()).get("values", []))
 
 
 def days_since_email(runs_rows, today):
@@ -35,59 +72,119 @@ def days_since_email(runs_rows, today):
     return (today - last).days if last else None
 
 
-TABS = {"Postings": POSTINGS_HEADER, "Seen": SEEN_HEADER, "Runs": RUNS_HEADER}
+def service_account_token(key_json):
+    """Mint a short-lived bearer token from a service-account key. google-auth signs the
+    RS256 JWT because the standard library has no RSA; the exchange is a plain POST."""
+    from google.auth import crypt, jwt  # only the token mint needs it; other stages run without a Google credential
+
+    info = json.loads(key_json)
+    now = int(time.time())
+    assertion = jwt.encode(crypt.RSASigner.from_service_account_info(info), {
+        "iss": info["client_email"],
+        "scope": "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file",
+        "aud": "https://oauth2.googleapis.com/token",
+        "iat": now,
+        "exp": now + 3600,
+    }).decode()
+    data = urllib.parse.urlencode({
+        "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+        "assertion": assertion,
+    }).encode()
+    with urllib.request.urlopen("https://oauth2.googleapis.com/token", data=data) as response:
+        return json.load(response)["access_token"]
 
 
-def gws(*args):
-    """Run a gws command and parse its JSON output."""
-    result = subprocess.run(["gws", *args], capture_output=True, text=True)
-    if result.returncode != 0:
-        raise SystemExit(f"gws {' '.join(args[:3])} failed:\n{result.stderr.strip()}")
-    return json.loads(result.stdout) if result.stdout.strip() else {}
+def api(method, url, token, body=None):
+    """One authenticated JSON request; the whole network surface of this module goes
+    through here. HTTPError propagates."""
+    payload = json.dumps(body).encode() if body is not None else None
+    request = urllib.request.Request(url, data=payload, method=method, headers={
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+    })
+    with urllib.request.urlopen(request) as response:
+        text = response.read()
+    return json.loads(text) if text else {}
 
 
-def init_sheet(sheet_id, title):
-    """Create the spreadsheet when no id is given. Either way, add whichever of the three
-    tabs are missing and write any header row that does not match the current columns.
-    Row 1 is ours alone, so rewriting it is safe; this is how a new column reaches an
-    existing sheet, and older rows simply have a blank in it. Returns the sheet id."""
+def read_tab(token, spreadsheet_id, tab):
+    """Read one tab into rows keyed by its header, the live form of load_sheet_rows."""
+    values = api("GET", f"{SHEETS}/{spreadsheet_id}/values/{urllib.parse.quote(tab)}", token).get("values", [])
+    return _rows_by_header(values)
+
+
+def append_rows(token, spreadsheet_id, tab, rows):
+    """Append rows below whatever the tab already holds."""
+    url = f"{SHEETS}/{spreadsheet_id}/values/{urllib.parse.quote(tab)}:append?valueInputOption=RAW"
+    api("POST", url, token, {"values": rows})
+
+
+def write_range(token, spreadsheet_id, cell_range, rows):
+    """Overwrite a range with rows, anchored at cell_range (e.g. "Postings!A1")."""
+    url = f"{SHEETS}/{spreadsheet_id}/values/{urllib.parse.quote(cell_range)}?valueInputOption=RAW"
+    api("PUT", url, token, {"values": rows})
+
+
+def create_spreadsheet(token, title, tabs):
+    """Create a spreadsheet with the named tabs and return its id."""
+    body = {"properties": {"title": title}, "sheets": [{"properties": {"title": tab}} for tab in tabs]}
+    return api("POST", SHEETS, token, body)["spreadsheetId"]
+
+
+def _find_permission(token, spreadsheet_id, email):
+    listing = api("GET", f"{DRIVE}/{spreadsheet_id}/permissions?fields=permissions(id,role,emailAddress)", token)
+    for perm in listing.get("permissions", []):
+        if (perm.get("emailAddress") or "").lower() == email.lower():
+            return perm
+    return None
+
+
+def add_editor(token, spreadsheet_id, email, notify):
+    """Grant one Google account edit access, sending Drive's share notification when `notify`
+    is set (skip it for the service account, which has no mailbox to receive it)."""
+    url = f"{DRIVE}/{spreadsheet_id}/permissions?sendNotificationEmail={'true' if notify else 'false'}"
+    api("POST", url, token, {"type": "user", "role": "writer", "emailAddress": email})
+
+
+def remove_editor(token, spreadsheet_id, email):
+    """Drop one account's access. The delete-me and operator-removal paths use this."""
+    perm = _find_permission(token, spreadsheet_id, email)
+    if perm:
+        api("DELETE", f"{DRIVE}/{spreadsheet_id}/permissions/{perm['id']}", token)
+
+
+def init_sheet(token, sheet_id, title):
+    """Create the spreadsheet when no id is given. Either way, add whichever of the six
+    tabs are missing and write every header row. Row 1 is ours alone, so rewriting it is
+    safe; this is how a new column reaches an existing sheet, and older rows simply have a
+    blank in it. Profile has no header: its A1 is the user's prose, so it is created empty
+    and never written. Returns the sheet id."""
     if not sheet_id:
-        created = gws("sheets", "spreadsheets", "create", "--json", json.dumps({
-            "properties": {"title": title},
-            "sheets": [{"properties": {"title": tab}} for tab in TABS],
-        }))
-        sheet_id = created["spreadsheetId"]
+        sheet_id = create_spreadsheet(token, title, TABS)
         print(f"created spreadsheet {sheet_id}")
-    meta = gws("sheets", "spreadsheets", "get", "--params", json.dumps({"spreadsheetId": sheet_id}))
-    existing = {sheet["properties"]["title"] for sheet in meta.get("sheets", [])}
+        existing = set(TABS)
+    else:
+        meta = api("GET", f"{SHEETS}/{sheet_id}?fields=sheets.properties.title", token)
+        existing = {sheet["properties"]["title"] for sheet in meta.get("sheets", [])}
     for tab in TABS:
         if tab not in existing:
-            gws("sheets", "spreadsheets", "batchUpdate", "--params", json.dumps({"spreadsheetId": sheet_id}),
-                "--json", json.dumps({"requests": [{"addSheet": {"properties": {"title": tab}}}]}))
+            api("POST", f"{SHEETS}/{sheet_id}:batchUpdate", token,
+                {"requests": [{"addSheet": {"properties": {"title": tab}}}]})
             print(f"added tab {tab}")
     for tab, header in TABS.items():
-        first_row = gws("sheets", "spreadsheets", "values", "get",
-                        "--params", json.dumps({"spreadsheetId": sheet_id, "range": f"{tab}!1:1"})).get("values", [[]])
-        if first_row and first_row[0] == header:
+        if not header:  # Profile: A1 is the user's prose, never ours to overwrite
             continue
-        gws("sheets", "spreadsheets", "values", "update",
-            "--params", json.dumps({"spreadsheetId": sheet_id, "range": f"{tab}!A1", "valueInputOption": "RAW"}),
-            "--json", json.dumps({"values": [header]}))
-        print(f"wrote header row for {tab}" if not first_row[0] else f"updated header row for {tab}")
+        write_range(token, sheet_id, f"{tab}!A1", [header])
+        print(f"wrote header row for {tab}")
     return sheet_id
 
 
-def share_sheet(sheet_id, email):
-    """Give one Google account edit access, once. The sheet is owned by the gws login, so
-    the person whose brief it is needs this to set status and notes. Requires the
-    drive.file scope, which covers files this OAuth client created."""
-    listing = gws("drive", "permissions", "list", "--params",
-                  json.dumps({"fileId": sheet_id, "fields": "permissions(emailAddress,role)"}))
-    for perm in listing.get("permissions", []):
-        if (perm.get("emailAddress") or "").lower() == email.lower():
-            if perm.get("role") in ("writer", "owner"):
-                return
-            break
-    gws("drive", "permissions", "create", "--params", json.dumps({"fileId": sheet_id, "sendNotificationEmail": True}),
-        "--json", json.dumps({"type": "user", "role": "writer", "emailAddress": email}))
-    print(f"shared with {email} as editor")
+def share_sheet(token, sheet_id, email):
+    """Give one Google account edit access, once. The sheet is owned by the token holder,
+    so the person whose brief it is needs this to set status and notes. Requires the
+    drive.file scope, which covers files this token created."""
+    perm = _find_permission(token, sheet_id, email)
+    if perm and perm.get("role") in ("writer", "owner"):
+        return
+    add_editor(token, sheet_id, email, True)
+    print(f"shared {sheet_id} as editor")

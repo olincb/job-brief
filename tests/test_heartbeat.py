@@ -8,7 +8,10 @@ from jobbrief.sheet import RUNS_HEADER
 
 def heartbeat(out, capsys, runs):
     """Run the heartbeat rule over a synthetic Runs tab. `runs` is (days ago, emailed)."""
-    rows = [[str(date.today() - timedelta(days=ago)), "", "", "", "", emailed, "", ""] for ago, emailed in runs]
+    def row(ago, emailed):
+        cells = {"date": str(date.today() - timedelta(days=ago)), "emailed": emailed}
+        return [cells.get(col, "") for col in RUNS_HEADER]
+    rows = [row(ago, emailed) for ago, emailed in runs]
     (out / "runs.json").write_text(json.dumps({"values": [RUNS_HEADER, *rows]}))
     cli.cmd_heartbeat(argparse.Namespace(out=out, runs="", postings="", days=4))
     return capsys.readouterr().out.strip()

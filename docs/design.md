@@ -21,7 +21,7 @@ choices below assume that.
 | Engine | public GitHub repo | nothing | none | none |
 | Daily job | GitHub Actions, scheduled, in a private ops repo that pins the engine | service account; Gemini key; SES SMTP credentials | those three | none |
 | Web app: sign-in, signup form, settings | Fly.io, one auto-stop Machine, Flask behind waitress, server-rendered | Google OAuth client for identity; service account for Sheets and Drive | OAuth client secret, session key, service account key | transient signup stash between form submit and Drive consent; lost on restart |
-| Registry sheet | Drive, owned by the service account | | | `Users`: email, sheet id, active, frequency. `Allowed`: invited emails. |
+| Registry sheet | Drive, owned by the operator, service account as editor | | | `Users`: email, sheet_id, active, frequency, added. `Allowed`: email, added. |
 | Per-user sheet | the user's own Drive, service account as editor | | | Answers, Profile, Settings, Postings, Seen, Runs |
 | Email | Amazon SES, `brief@<your-domain>`, production access | | SMTP credentials | |
 
@@ -29,9 +29,20 @@ Nothing per user is stored anywhere except a registry row and their own
 sheet. No database. No refresh tokens. Everything is in one Google Cloud
 project plus one AWS account, both the operator's.
 
+The registry sheet is not created by the engine: there is no hand-seeding
+path for rows, so the operator makes the sheet once by hand with the two
+tabs and their headers, and the operator's own account signs up like anyone.
+The run reads it through `REGISTRY_SHEET_ID`, which with `ONLY_USERS` (see
+Scoping) are the only two settings the run takes besides credentials.
+
 The engine is standard library with one exception: `google-auth` signs the
 service account's JWT, because the standard library has no RSA and that is
-the kind of domain logic a dependency is for. The web app adds Flask and
+the kind of domain logic a dependency is for. The key reaches the engine
+through one environment variable, `SERVICE_ACCOUNT_JSON`, holding the key
+file's JSON; `cli.py` reads it, mints a short-lived token scoped to
+`spreadsheets` and `drive.file`, and passes the token to the sheet
+functions. Everything after signing — the token exchange and every Sheets
+and Drive call — is `urllib`. The web app adds Flask and
 waitress in a `web` extra, so installing the engine alone pulls neither.
 Flask because the app is forms, redirects, and a signed cookie, which is
 what it ships; waitress because it is one process with threads, and signup
