@@ -1,6 +1,6 @@
 """The registry sheet: the two tab headers and the run's user selection.
 
-One spreadsheet owned by the service account, the only per-user state outside a user's own
+One spreadsheet the operator owns and the service account edits, the only per-user state outside a user's own
 sheet. Rows are written by signup and settings; the run only reads them. The caller reads a
 tab with sheet.read_tab and passes the rows here, so this stays offline and testable."""
 
