@@ -21,7 +21,7 @@ choices below assume that.
 | Engine | public GitHub repo | nothing | none | none |
 | Daily job | GitHub Actions, scheduled, in a private ops repo that pins the engine | service account; Gemini key; SES SMTP credentials | those three | none |
 | Web app: sign-in, signup form, settings | Fly.io, one auto-stop Machine, Flask behind waitress, server-rendered | Google OAuth client for identity; service account for Sheets and Drive | OAuth client secret, session key, service account key | transient signup stash between form submit and Drive consent; lost on restart |
-| Registry sheet | Drive, owned by the service account | | | `Users`: email, sheet_id, active, frequency, added. `Allowed`: email, added. |
+| Registry sheet | Drive, owned by the operator, service account as editor | | | `Users`: email, sheet_id, active, frequency, added. `Allowed`: email, added. |
 | Per-user sheet | the user's own Drive, service account as editor | | | Answers, Profile, Settings, Postings, Seen, Runs |
 | Email | Amazon SES, `brief@<your-domain>`, production access | | SMTP credentials | |
 
