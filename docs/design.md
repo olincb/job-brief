@@ -348,15 +348,16 @@ and the heartbeat rule. Issues carry the detail.
 ## Verified and open
 
 Verified: `drive.file` covers create, populate and share; it is
-non-sensitive on both the Drive and Sheets scope pages; Gemini accepts
-PDFs inline; SES sandbox behavior and production-access path; Fly
-scheduled Machines and Actions cron characteristics.
+non-sensitive on both the Drive and Sheets scope pages; a service account
+with `spreadsheets` and `drive.file` adds tabs and writes headers to a
+sheet in a personal Drive shared to it as editor, and reads the registry
+the same way; Gemini accepts PDFs inline; SES sandbox behavior and
+production-access path; Fly scheduled Machines and Actions cron
+characteristics.
 
 Open, to test with real credentials before code depends on them:
 
-1. A service account can write to a sheet in a personal Drive that was
-   shared to it as editor. Expected yes; load-bearing.
-2. SES production access turnaround, requested alongside publishing the
+1. SES production access turnaround, requested alongside publishing the
    OAuth app so the first friend's path has no manual step.
 
 ## Deliberately unspecified
