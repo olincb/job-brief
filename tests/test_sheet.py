@@ -66,8 +66,9 @@ def test_read_tab_keys_rows_by_header_and_pads_short_rows(monkeypatch):
 def test_share_sheet_grants_edit_access(monkeypatch):
     calls = fake_api(monkeypatch, "unused", existing_tabs=[], permissions=[])
     sheet.share_sheet("token", "sheet-id", "someone@example.com")
-    grant = next(body for method, url, body in calls if method == "POST")
+    grant_url, grant = next((url, body) for method, url, body in calls if method == "POST")
     assert grant == {"type": "user", "role": "writer", "emailAddress": "someone@example.com"}
+    assert "sendNotificationEmail=true" in grant_url
 
 
 def test_share_sheet_skips_an_account_that_is_already_an_editor(monkeypatch):

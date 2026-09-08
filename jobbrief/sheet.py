@@ -139,9 +139,10 @@ def _find_permission(token, spreadsheet_id, email):
     return None
 
 
-def add_editor(token, spreadsheet_id, email):
-    """Grant one Google account edit access, sending Drive's share notification."""
-    url = f"{DRIVE}/{spreadsheet_id}/permissions?sendNotificationEmail=true"
+def add_editor(token, spreadsheet_id, email, notify):
+    """Grant one Google account edit access, sending Drive's share notification when `notify`
+    is set (skip it for the service account, which has no mailbox to receive it)."""
+    url = f"{DRIVE}/{spreadsheet_id}/permissions?sendNotificationEmail={'true' if notify else 'false'}"
     api("POST", url, token, {"type": "user", "role": "writer", "emailAddress": email})
 
 
@@ -185,5 +186,5 @@ def share_sheet(token, sheet_id, email):
     perm = _find_permission(token, sheet_id, email)
     if perm and perm.get("role") in ("writer", "owner"):
         return
-    add_editor(token, sheet_id, email)
+    add_editor(token, sheet_id, email, True)
     print(f"shared {sheet_id} as editor")
