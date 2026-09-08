@@ -10,8 +10,6 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 
-from google.auth import crypt, jwt
-
 
 # Sheet layout. Answers is the raw questionnaire, one column per question in
 # docs/questionnaire.md order, then the submit date; resume holds the uploaded filename,
@@ -77,6 +75,8 @@ def days_since_email(runs_rows, today):
 def service_account_token(key_json):
     """Mint a short-lived bearer token from a service-account key. google-auth signs the
     RS256 JWT because the standard library has no RSA; the exchange is a plain POST."""
+    from google.auth import crypt, jwt  # only the token mint needs it; other stages run without a Google credential
+
     info = json.loads(key_json)
     now = int(time.time())
     assertion = jwt.encode(crypt.RSASigner.from_service_account_info(info), {
