@@ -22,3 +22,9 @@ def test_empty_only_users_returns_all_active():
 
 def test_only_users_restricts_case_insensitively():
     assert emails(users_to_run(USERS, ["AMY@EXAMPLE.COM"])) == ["amy@example.com"]
+
+
+def test_hand_edited_case_and_whitespace_do_not_drop_a_user():
+    row = {"email": " dot@example.com ", "sheet_id": "sheet-dot", "active": "Yes ",
+           "frequency": "daily", "added": "2026-01-04"}
+    assert users_to_run([row], ["dot@example.com"]) == [row]
