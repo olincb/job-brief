@@ -352,13 +352,13 @@ non-sensitive on both the Drive and Sheets scope pages; a service account
 with `spreadsheets` and `drive.file` adds tabs and writes headers to a
 sheet in a personal Drive shared to it as editor, and reads the registry
 the same way; Gemini accepts PDFs inline; SES sandbox behavior and
-production-access path; Fly scheduled Machines and Actions cron
-characteristics.
+production-access path, granted the same day it was requested with no
+justification asked beyond a website URL, so a `send` from the engine to
+any address works before the first friend signs up; Fly scheduled
+Machines and Actions cron characteristics.
 
-Open, to test with real credentials before code depends on them:
-
-1. SES production access turnaround, requested alongside publishing the
-   OAuth app so the first friend's path has no manual step.
+Nothing is open: every credential-dependent assumption above has been
+tested with real credentials.
 
 ## Deliberately unspecified
 
