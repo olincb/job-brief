@@ -59,8 +59,9 @@ Complexity does not get amortized here; it just delays results.
   things that differ per user or per deployment, and the design doc lists
   them.
 - **No new service, process, or dependency without stopping to ask.** A
-  database, a queue, a cache, a framework, a CLI tool, a GitHub Action
-  beyond the one scheduled job. The bar is: a file, a sheet, or the
+  database, a queue, a cache, a framework, a CLI tool, a GitHub Actions
+  workflow beyond the two the design doc names. The bar is: a file, a
+  sheet, or the
   standard library cannot reasonably do it. Say what it costs per month.
 - **No feature flags, compatibility shims, or migration scaffolding.**
   There is one deployment and one version. Change the code.

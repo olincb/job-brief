@@ -227,9 +227,16 @@ because every recipient is known personally.
   days, median fit per user, source attribution.
 - **Gemini** on the paid tier, with a budget alert on the project, so no
   user's profile is training data.
-- **Two repos.** The engine is public and contains no personal data, not
-  even in logs. The ops repo is private and holds the workflow, secrets,
-  and nothing else.
+- **Two repos, two workflows.** The engine is public and contains no
+  personal data, not even in logs. The ops repo is private and holds the
+  two workflows, `fly.toml`, secrets, and nothing else. The daily job runs
+  on a cron. The web app deploys from a second, manually dispatched
+  workflow that checks out the engine at a tag, adds the ops repo's
+  `fly.toml`, refreshes Fly's secrets from the ops repo's Actions secrets,
+  and runs `fly deploy --remote-only`. Nothing is deployed from a laptop.
+- **Secrets have one home.** The ops repo's Actions secrets hold every
+  secret; Fly holds a copy that the deploy workflow rewrites each time.
+  Rotating anything is: update the Actions secret, dispatch the deploy.
 
 ## Documentation split
 
@@ -265,9 +272,10 @@ email:
    Fly app name and region, SES identity, region and production-access
    status, DNS records and what each is for, both GitHub repos, the
    registry sheet URL.
-5. Secrets map: each secret, which system holds it, which components read
-   it, exact rotation steps. The service account key is the only secret in
-   two places.
+5. Secrets map: each secret, which components read it, exact rotation
+   steps. Every secret is held in the ops repo's Actions secrets; Fly's
+   copy is written by the deploy workflow, so rotation is one edit and one
+   dispatch.
 6. Costs: what runs each bill and where to see it. Gemini in the Cloud
    console, SES in AWS, Fly's dashboard, Actions minutes.
 7. Deployment-specific decisions, such as the 22:00 UTC schedule and the
@@ -322,9 +330,9 @@ implementation issues when the pull toward generality first showed.
 - Adding any sensitive or restricted scope later reopens Google's
   verification process. Staying on `drive.file` keeps the app permanently
   outside it.
-- Rotating the service account key touches the web app and the ops repo.
-  Rotating the OAuth client secret touches only the web app. Users hold
-  nothing and are never affected by either.
+- Every secret lives in the ops repo's Actions secrets and nowhere the
+  operator has to remember. Rotation is one edit there and one deploy
+  dispatch. Users hold nothing and are never affected.
 
 ## Build order
 
