@@ -204,11 +204,11 @@ field would have prevented it.
 SES over any Gmail route. The credential is send-only and project-owned,
 not tied to anyone's personal account, and rotating it touches nothing
 else. Domain verified with Easy DKIM records published at your DNS provider,
-plus SPF and DMARC records. Production access requested before onboarding anyone
-beyond the first two users; until then the operator verifies each
-recipient by hand in the AWS console, the recipient clicks the Amazon link,
-and the signup page says so. The code speaks SMTP only and never calls the
-SES API, so there is no AWS request signing anywhere. Hard bounces are
+plus SPF and DMARC records. Production access was granted the day it was
+requested, before the first signup, so the engine sends to any address and
+no recipient verification step exists in the signup flow. The code speaks
+SMTP only and never calls the SES API, so there is no AWS request signing
+anywhere. Hard bounces are
 handled by SES's account-level suppression list, which is sufficient
 because every recipient is known personally.
 
