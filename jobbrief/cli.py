@@ -9,7 +9,7 @@ other modules; these subcommands read those values from files and write results 
   render     brief.md -> brief.html, with a link to the tracking sheet
   heartbeat  Runs dump -> "send" (and heartbeat.html) or "quiet"
   log-run    stats under --out -> run_row.json, one row for the Runs tab
-  init-sheet create a sheet, or add missing tabs and headers to one, and share it
+  init-sheet create a sheet, or add missing tabs and headers to one
 
 The model only ranks and writes, in one API call. Fetching, dedup against the sheet, and
 building the rows to append all happen here so a run costs one request."""
@@ -25,7 +25,7 @@ from pathlib import Path
 from jobbrief.llm import generate, parse_model_json
 from jobbrief.rank import build_prompt, finish
 from jobbrief.render import heartbeat_html, render
-from jobbrief.sheet import days_since_email, init_sheet, load_sheet_rows, service_account_token, share_sheet
+from jobbrief.sheet import days_since_email, init_sheet, load_sheet_rows, service_account_token
 from jobbrief.sources import FETCHERS, SKIPPED, enrich, select_candidates
 
 
@@ -111,8 +111,6 @@ def cmd_init_sheet(args):
     """Idempotent: safe to rerun after upgrading, e.g. when a new tab is introduced."""
     token = service_account_token(os.environ.get("SERVICE_ACCOUNT_JSON") or sys.exit("SERVICE_ACCOUNT_JSON is not set"))
     sheet_id = init_sheet(token, args.sheet_id, args.title)
-    if args.share_with:
-        share_sheet(token, sheet_id, args.share_with)
     print(f"ready: https://docs.google.com/spreadsheets/d/{sheet_id}")
 
 
@@ -166,7 +164,6 @@ def main():
     p = sub.add_parser("init-sheet")
     p.add_argument("--sheet-id", default="", help="existing sheet to bring up to date; omit to create one")
     p.add_argument("--title", default="Job Brief", help="title for a newly created sheet")
-    p.add_argument("--share-with", default="", metavar="EMAIL", help="grant this Google account edit access")
     p.set_defaults(func=cmd_init_sheet)
 
     args = parser.parse_args()

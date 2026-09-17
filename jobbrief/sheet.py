@@ -177,14 +177,3 @@ def init_sheet(token, sheet_id, title):
         write_range(token, sheet_id, f"{tab}!A1", [header])
         print(f"wrote header row for {tab}")
     return sheet_id
-
-
-def share_sheet(token, sheet_id, email):
-    """Give one Google account edit access, once. The sheet is owned by the token holder,
-    so the person whose brief it is needs this to set status and notes. Requires the
-    drive.file scope, which covers files this token created."""
-    perm = _find_permission(token, sheet_id, email)
-    if perm and perm.get("role") in ("writer", "owner"):
-        return
-    add_editor(token, sheet_id, email, True)
-    print(f"shared {sheet_id} as editor")

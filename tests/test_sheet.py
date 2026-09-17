@@ -4,8 +4,8 @@ from jobbrief.sheet import (ANSWERS_HEADER, POSTINGS_HEADER, RUNS_HEADER, SEEN_H
 
 
 def fake_api(monkeypatch, sheet_id, existing_tabs, permissions=()):
-    """Stand in for the one request function on a sheet with the given tabs and shares.
-    Records every call so a test can assert what init_sheet or share_sheet would change."""
+    """Stand in for the one request function on a sheet with the given tabs and permissions.
+    Records every call so a test can assert what init_sheet would change."""
     calls = []
 
     def api(method, url, token, body=None):
@@ -61,18 +61,3 @@ def test_read_tab_keys_rows_by_header_and_pads_short_rows(monkeypatch):
     assert sheet.read_tab("token", "sheet-id", "Seen") == [
         {"date_seen": "2026-09-01", "id": "greenhouse:acme:1", "url": ""},
     ]
-
-
-def test_share_sheet_grants_edit_access(monkeypatch):
-    calls = fake_api(monkeypatch, "unused", existing_tabs=[], permissions=[])
-    sheet.share_sheet("token", "sheet-id", "someone@example.com")
-    grant_url, grant = next((url, body) for method, url, body in calls if method == "POST")
-    assert grant == {"type": "user", "role": "writer", "emailAddress": "someone@example.com"}
-    assert "sendNotificationEmail=true" in grant_url
-
-
-def test_share_sheet_skips_an_account_that_is_already_an_editor(monkeypatch):
-    already = [{"id": "p1", "role": "writer", "emailAddress": "someone@example.com"}]
-    calls = fake_api(monkeypatch, "unused", existing_tabs=[], permissions=already)
-    sheet.share_sheet("token", "sheet-id", "someone@example.com")
-    assert not any(method == "POST" for method, _, _ in calls)
