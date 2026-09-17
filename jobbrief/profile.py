@@ -52,30 +52,36 @@ def _years(experience):
     return int(match.group()) if match else 0
 
 
-def _pattern(phrase):
-    """A typed phrase as one regex line of a Settings cell: escaped so `C++` is literal,
-    with spaces left alone so the line stays readable to whoever edits it."""
-    return re.escape(phrase).replace("\\ ", " ")
+def _pattern(phrase, anchored=False):
+    """A phrase as one regex line of a Settings cell: escaped so `C++` is literal, with
+    spaces left alone so the line stays readable to whoever edits it. A word this module
+    generated is anchored to word boundaries, so `intern` does not also drop
+    "International Analyst"; a phrase the user typed is left as they typed it."""
+    escaped = re.escape(phrase).replace("\\ ", " ")
+    return rf"\b{escaped}\b" if anchored else escaped
 
 
 def title_filters(answers, role_titles):
-    """Questions 7 and 8 as the two regex lists Settings holds. A search phrase naming a
-    level word is repeated with each level word of the band the years in question 2 put the
-    user in, because boards spell the same job at a different level; past the entry band the
-    entry-level words are excluded outright."""
+    """Questions 7 and 8 as the two regex lists Settings holds. A search phrase that opens
+    with a level word is repeated at each level word of the band the years in question 2 put
+    the user in, because boards spell the same job at a different level. Only the opening
+    word is swapped: elsewhere the word is the job rather than the level, and substituting
+    into "lab supervisor" invents a title nobody posts. Question 10 decides the entry-level
+    words: they are excluded outright only when the user said no to a role below their
+    training."""
     band = next(name for floor, name in BANDS if _years(answers.get("experience")) >= floor)
     known = {word for words in role_titles.values() for word in words}
     filters = []
     for phrase in _phrases(answers.get("search_titles")):
-        filters.append(phrase)
-        words = phrase.split()
-        for index, word in enumerate(words):
-            if word.lower() in known:
-                filters.extend(" ".join(words[:index] + [level] + words[index + 1:])
-                               for level in role_titles[band])
-    excludes = _phrases(answers.get("exclude_titles")) + ([] if band == "entry" else role_titles["entry"])
-    return ([_pattern(p) for p in dict.fromkeys(filters)],
-            [_pattern(p) for p in dict.fromkeys(excludes)])
+        filters.append(_pattern(phrase))
+        head, _, rest = phrase.partition(" ")
+        if rest and head.lower() in known:
+            filters.extend(_pattern(f"{level} {rest}", anchored=True)
+                           for level in role_titles[band] if level.lower() != head.lower())
+    excludes = [_pattern(phrase) for phrase in _phrases(answers.get("exclude_titles"))]
+    if answers.get("entry_level", "").strip().lower() == "no":
+        excludes += [_pattern(word, anchored=True) for word in role_titles["entry"]]
+    return list(dict.fromkeys(filters)), list(dict.fromkeys(excludes))
 
 
 def build_prompt(template, answers, resume_text=""):
@@ -91,15 +97,18 @@ def build_prompt(template, answers, resume_text=""):
 
 def draft_profile(answers, models, api_key, retries, resume=None):
     """One signup's Profile text and the Settings values to write beside it, from an Answers
-    row and an optional resume as `(filename, bytes)`. The form accepts PDF and Word only,
-    and `generate` raises SystemExit when every model attempt fails."""
+    row and an optional resume as `(filename, bytes)`. Raises ValueError for a resume that is
+    neither a PDF nor a .docx, and `generate` raises SystemExit when every model attempt
+    fails; both leave signup with nothing written."""
     pdf, resume_text = None, ""
     if resume:
         filename, data = resume
         if filename.lower().endswith(".pdf"):
             pdf = data
-        else:
+        elif filename.lower().endswith(".docx"):
             resume_text = docx_text(data)
+        else:
+            raise ValueError(f"{filename} is not a PDF or a .docx")
     prompt = build_prompt(DATA.joinpath("profile_prompt.md").read_text(), answers, resume_text)
     profile, _model, _usage = generate(prompt, models, api_key, retries, pdf=pdf)
     title_filter, title_exclude = title_filters(answers, json.loads(DATA.joinpath("role_titles.json").read_text()))

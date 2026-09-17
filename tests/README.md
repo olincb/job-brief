@@ -14,8 +14,8 @@ over recorded bodies.
   dedup against the Seen tab); ranking (prompt assembly, the model call's
   fallback budget against a fake `call_gemini`, picks into rows); the
   Sheets/Drive client (init_sheet lays the six tabs and never writes Profile,
-  against a fake request function that records the calls it would make); the
-  registry selection
+  and the editor, row and cell operations, against a fake request function that
+  records the calls they would make); the registry selection
   (inactive rows dropped, `ONLY_USERS` scoping, case-insensitive); profile
   drafting (the generator prompt from an invented answers row, the level-word
   widening of the title filters, a Word resume to text); the

@@ -22,7 +22,7 @@ from datetime import datetime
 from importlib.resources import files
 from pathlib import Path
 
-from jobbrief.llm import generate, parse_model_json
+from jobbrief.llm import MODELS, RETRIES, generate, parse_model_json
 from jobbrief.rank import build_prompt, finish
 from jobbrief.render import heartbeat_html, render
 from jobbrief.sheet import days_since_email, init_sheet, load_sheet_rows, service_account_token
@@ -136,9 +136,9 @@ def main():
     p.set_defaults(func=cmd_prompt)
 
     p = sub.add_parser("rank", parents=[common])
-    p.add_argument("--model", default="gemini-3.8-flash")
-    p.add_argument("--fallback-model", default="gemini-3.5-flash")
-    p.add_argument("--retries", type=int, default=8, help="total attempts, split evenly between the primary and fallback models")
+    p.add_argument("--model", default=MODELS[0])
+    p.add_argument("--fallback-model", default=MODELS[1])
+    p.add_argument("--retries", type=int, default=RETRIES, help="total attempts, split evenly between the primary and fallback models")
     p.set_defaults(func=cmd_rank)
 
     p = sub.add_parser("finish", parents=[common])

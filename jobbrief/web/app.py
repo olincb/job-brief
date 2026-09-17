@@ -16,7 +16,7 @@ from html import escape
 from flask import Flask, abort, redirect, render_template, request, session, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from jobbrief import mail, profile, registry, sheet
+from jobbrief import llm, mail, profile, registry, sheet
 from jobbrief.web import form, oauth
 
 
@@ -29,9 +29,7 @@ SHEET_TITLE = "Job Brief"
 SHEET_URL = "https://docs.google.com/spreadsheets/d/{}"
 RECENT_RUNS = 10
 EDITABLE_SETTINGS = ["title_filter", "title_exclude", "max_picks"]  # lookback_days stays as signup wrote it
-# The daily run's models and retry budget, which `jobbrief.cli` takes as flag defaults.
-MODELS = ["gemini-3.8-flash", "gemini-3.5-flash"]
-RETRIES = 8
+RETAKE_SETTINGS = ["title_filter", "title_exclude"]  # the pick cap and lookback stay where the user left them
 
 _allowed = (0.0, frozenset())
 _stash = {}
@@ -220,14 +218,17 @@ def create_app():
         resume = (upload.filename, upload.read()) if upload and upload.filename else None
         answers = form.answers_from_form(request.form, resume[0] if resume else "", today())
         try:
-            profile_text, settings = profile.draft_profile(answers, MODELS, os.environ["GEMINI_API_KEY"],
-                                                           RETRIES, resume=resume)
-        except SystemExit as failure:
-            print(f"profile generation failed: {failure}")
-            return signup_page(answers, "The model could not draft a profile just now. Nothing was "
-                               "written, and submitting again is all it takes.", retake=bool(row))
+            profile_text, settings = profile.draft_profile(answers, llm.MODELS, os.environ["GEMINI_API_KEY"],
+                                                           llm.RETRIES, resume=resume)
+        except (SystemExit, ValueError) as failure:
+            print(f"signup could not draft a profile: {failure}")
+            notice = ("That resume is not a PDF or a .docx." if isinstance(failure, ValueError)
+                      else "The model could not draft a profile just now.")
+            return signup_page(answers, f"{notice} Nothing was written, and submitting again is all "
+                               "it takes.", retake=bool(row))
         if row:
-            write_signup(token, row["sheet_id"], answers, profile_text, settings)
+            write_signup(token, row["sheet_id"], answers, profile_text,
+                         {key: settings[key] for key in RETAKE_SETTINGS})
             return redirect(url_for("settings"))
         session["signup"] = secrets.token_urlsafe(16)
         stash(session["signup"], {"answers": answers, "profile": profile_text, "settings": settings})

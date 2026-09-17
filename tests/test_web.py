@@ -1,5 +1,7 @@
 import io
 import re
+import urllib.parse
+from datetime import datetime
 
 import pytest
 
@@ -50,6 +52,8 @@ REGISTERED = [("first@example.com", "sheet-first", "yes", "daily", "2026-01-01")
 STORED_SETTINGS = [{"key": key, "value": str(value)} for key, value in SETTINGS.items()]
 RUNS = [dict(zip(RUNS_HEADER, [f"2026-09-{day:02d}", "40", "3", "0", "sent", "yes",
                                "flash", "1200", "greenhouse:3", ""])) for day in range(1, 13)]
+SAVE = {"profile": "New profile prose.", "title_filter": "water quality analyst",
+        "title_exclude": "sales", "max_picks": "10", "frequency": "daily"}
 PREVIOUS = dict({column: "" for column in ANSWERS_HEADER},
                 field="municipal water systems", experience="6 years", terms="on-call: no",
                 physical="long drives", per_listing="why it fits you", submitted="2026-09-01")
@@ -65,20 +69,27 @@ def fake_oauth(email, verified=True):
     return request
 
 
-def fake_tabs(monkeypatch, allowed=(), users=(), **user_sheet):
-    """Stand in for every tab read: the registry's two from `allowed` and `users`, and
-    whatever the user's own sheet should hold."""
-    tabs = {"Allowed": [{"email": address, "added": "2026-01-01"} for address in allowed],
-            "Users": [dict(zip(registry.USERS_HEADER, row)) for row in users]}
-    tabs.update(user_sheet)
-    monkeypatch.setattr(sheet, "read_tab", lambda token, sheet_id, tab: tabs.get(tab, []))
+def fake_tabs(monkeypatch, allowed=(), users=(), sheet_id="their-sheet-id", **user_sheet):
+    """Stand in for every tab read, keyed by the sheet it belongs to: the registry's two
+    tabs from `allowed` and `users`, and whatever the user's own sheet holds."""
+    tabs = {(ENV["REGISTRY_SHEET_ID"], "Allowed"): [{"email": address, "added": "2026-01-01"} for address in allowed],
+            (ENV["REGISTRY_SHEET_ID"], "Users"): [dict(zip(registry.USERS_HEADER, row)) for row in users]}
+    tabs.update({(sheet_id, tab): rows for tab, rows in user_sheet.items()})
+    monkeypatch.setattr(sheet, "read_tab", lambda token, target, tab: tabs.get((target, tab), []))
 
 
 def value_writes(calls):
-    """The last write to each tab: init_sheet lays the header row, then signup writes over
-    it or appends beneath it."""
-    return {url.split("/values/")[1].split("?")[0].split("%21")[0].split(":")[0]: body["values"]
-            for method, url, token, body in calls if "/values/" in url}
+    """Every write to a range, in order, as (range, rows). A header row and the row under it
+    are separate writes and stay that way."""
+    return [(urllib.parse.unquote(url.split("/values/")[1].split("?")[0]), body["values"])
+            for method, url, token, body in calls if "/values/" in url]
+
+
+def written_to(writes, target):
+    """The rows written to one range, and a failure if anything wrote there twice."""
+    rows = [values for where, values in writes if where == target]
+    assert len(rows) == 1, f"{len(rows)} writes to {target}"
+    return rows[0]
 
 
 def fake_sheets(monkeypatch, permissions=()):
@@ -132,13 +143,13 @@ def submit(client, monkeypatch, drafted, resume=None):
     return client.post("/signup", data=data, content_type="multipart/form-data")
 
 
-def drafts(profile_text="## Summary\n\nA water person."):
+def drafts(profile_text="## Summary\n\nA water person.", settings=SETTINGS):
     """A model stage that records its arguments and returns one profile."""
     calls = []
 
     def draft_profile(answers, models, api_key, retries, resume=None):
         calls.append({"answers": answers, "resume": resume})
-        return profile_text, dict(SETTINGS)
+        return profile_text, dict(settings)
 
     return draft_profile, calls
 
@@ -207,7 +218,7 @@ def test_submit_drafts_the_profile_and_asks_for_drive_consent(client, monkeypatc
     assert answers["per_listing"] == "why it fits you\nsalary when listed"
     # The stash holds the answers between the two requests; the resume bytes are gone.
     held = next(iter(web._stash.values()))
-    assert set(held) == {"answers", "profile", "settings", "created"}
+    assert "%PDF" not in repr(held)
 
 
 def test_the_drive_callback_creates_the_sheet_registers_the_user_and_welcomes_them(client, monkeypatch, sent):
@@ -229,21 +240,17 @@ def test_the_drive_callback_creates_the_sheet_registers_the_user_and_welcomes_th
     assert share[2] == {"type": "user", "role": "writer", "emailAddress": "bot@example.iam.gserviceaccount.com"}
 
     written = value_writes(calls)
-    assert written["Answers"] == [[
-        FORM["field"], FORM["experience"], "", FORM["tools"], "", FORM["work_types"],
-        FORM["search_titles"], FORM["exclude_titles"], "", "", "",
-        "weekends or evenings: fine\non-call: no", "long drives\nconfined spaces", "", "",
-        FORM["about_you"], "", "", "why it fits you\nsalary when listed", "",
-        written["Answers"][0][ANSWERS_HEADER.index("submitted")],
-    ]]
-    assert written["Profile"] == [["## Summary\n\nA water person."]]
-    assert written["Settings"] == [[key, value] for key, value in SETTINGS.items()]
+    row = dict(zip(ANSWERS_HEADER, written_to(written, "Answers!A2")[0]))
+    assert row["field"] == FORM["field"] and row["resume"] == ""
+    assert row["submitted"] == datetime.now().strftime("%Y-%m-%d")
+    assert written_to(written, "Profile!A1") == [["## Summary\n\nA water person."]]
+    assert written_to(written, "Settings!A2") == [[key, value] for key, value in SETTINGS.items()]
 
-    registered = next((token, body) for method, url, token, body in calls
-                      if "registry-sheet-id" in url and "Users" in url)
-    assert registered[0] == "sa-token"
-    assert registered[1]["values"] == [[USER, "new-sheet-id", "no", "daily",
-                                        registered[1]["values"][0][-1]]]
+    roster = next((token, body) for method, url, token, body in calls if "Users:append" in url)
+    assert roster[0] == "sa-token"
+    assert dict(zip(registry.USERS_HEADER, roster[1]["values"][0])) == {
+        "email": USER, "sheet_id": "new-sheet-id", "active": "no", "frequency": "daily",
+        "added": datetime.now().strftime("%Y-%m-%d")}
 
     to, subject, text = sent[0]
     assert to == USER and "new-sheet-id" in text and "operator" in text.lower()
@@ -296,16 +303,15 @@ def test_settings_shows_the_profile_the_filters_the_frequency_and_the_last_ten_r
 def test_saving_writes_the_profile_the_settings_and_the_registry_row(client, monkeypatch):
     registered(client, monkeypatch)
     calls = fake_sheets(monkeypatch)
-    response = client.post("/settings", data={"profile": "New profile prose.", "title_filter": "hydrologist",
-                                              "title_exclude": "sales", "max_picks": "5", "frequency": "daily"})
+    response = client.post("/settings", data=dict(SAVE, title_filter="hydrologist", max_picks="5"))
     assert response.headers["Location"] == "/settings"
     written = value_writes(calls)
-    assert written["Profile"] == [["New profile prose."]]
+    assert written_to(written, "Profile!A1") == [["New profile prose."]]
     # lookback_days is not on the page, and the save leaves it as it was.
-    assert written["Settings"] == [["title_filter", "hydrologist"], ["title_exclude", "sales"],
-                                   ["lookback_days", "3"], ["max_picks", "5"]]
-    assert written["Users"] == [[USER, "their-sheet-id", "yes", "daily", "2026-01-02"]]
-    assert any("Users%21A3" in url for _, url, _, _ in calls)
+    assert written_to(written, "Settings!A2") == [["title_filter", "hydrologist"], ["title_exclude", "sales"],
+                                                  ["lookback_days", "3"], ["max_picks", "5"]]
+    # Row 3 of the registry: the second user under the header.
+    assert written_to(written, "Users!A3") == [[USER, "their-sheet-id", "yes", "daily", "2026-01-02"]]
 
 
 def test_pausing_and_unpausing_flip_active_on_the_registry_row(client, monkeypatch):
@@ -313,11 +319,13 @@ def test_pausing_and_unpausing_flip_active_on_the_registry_row(client, monkeypat
     calls = fake_sheets(monkeypatch)
     active = registry.USERS_HEADER.index("active")
 
-    client.post("/settings", data={"frequency": "weekly", "paused": "on"})
-    assert value_writes(calls)["Users"][0][active] == "no"
+    client.post("/settings", data=dict(SAVE, paused="on"))
+    assert written_to(value_writes(calls), "Users!A3")[0][active] == "no"
     calls.clear()
-    client.post("/settings", data={"frequency": "weekly"})
-    assert value_writes(calls)["Users"][0][active] == "yes"
+    client.post("/settings", data=SAVE)
+    written = value_writes(calls)
+    assert written_to(written, "Users!A3")[0][active] == "yes"
+    assert written_to(written, "Profile!A1") == [["New profile prose."]]  # unpausing is not a wipe
 
 
 def test_retake_prefills_the_form_and_rewrites_the_answers_without_touching_drive(client, monkeypatch):
@@ -328,17 +336,21 @@ def test_retake_prefills_the_form_and_rewrites_the_answers_without_touching_driv
     assert re.search(r'value="long drives"\s+checked', page)
     assert re.search(r'name="terms-1" value="no"\s+checked', page)  # on-call, as it was answered
 
-    draft_profile, drafted = drafts("## Summary\n\nA redrafted person.")
+    redrawn = dict(SETTINGS, title_filter="hydrologist", lookback_days=9, max_picks=99)
+    draft_profile, drafted = drafts("## Summary\n\nA redrafted person.", settings=redrawn)
     calls = fake_sheets(monkeypatch)
     response = submit(client, monkeypatch, draft_profile)
     assert response.headers["Location"] == "/settings"
     assert drafted[0]["answers"]["field"] == FORM["field"]
     written = value_writes(calls)
-    assert written["Answers"][0][0] == FORM["field"]
-    assert written["Profile"] == [["## Summary\n\nA redrafted person."]]
+    assert written_to(written, "Answers!A2")[0][0] == FORM["field"]
+    assert written_to(written, "Profile!A1") == [["## Summary\n\nA redrafted person."]]
+    # The filters are redrawn; the pick cap and lookback are the user's, not the model's.
+    assert written_to(written, "Settings!A2") == [["title_filter", "hydrologist"], ["title_exclude", "sales"],
+                                                  ["lookback_days", "3"], ["max_picks", "10"]]
     # No second sheet, no second consent, and the run's history is untouched.
     assert not any(url.endswith("/spreadsheets") or "/permissions" in url for _, url, _, _ in calls)
-    assert set(written) == {"Answers", "Profile", "Settings"}
+    assert {where for where, _ in written} == {"Answers!A2", "Profile!A1", "Settings!A2"}
     assert web._stash == {}
 
 
@@ -347,10 +359,39 @@ def test_delete_me_removes_the_registry_row_and_the_service_accounts_access(clie
     assert b"Remove me" in client.get("/delete").data
     editor = [{"id": "p1", "role": "writer", "emailAddress": "bot@example.iam.gserviceaccount.com"}]
     calls = fake_sheets(monkeypatch, permissions=editor)
+    dropped = []
+    monkeypatch.setattr(sheet, "delete_row",
+                        lambda token, target, tab, number: dropped.append((target, tab, number)))
 
     assert b"Removed" in client.post("/delete").data
-    dropped = next(body for _, url, _, body in calls if "batchUpdate" in url)
-    assert dropped["requests"][0]["deleteDimension"]["range"] == {
-        "sheetId": 7, "dimension": "ROWS", "startIndex": 2, "endIndex": 3}
+    assert dropped == [(ENV["REGISTRY_SHEET_ID"], "Users", 3)]
     assert any(method == "DELETE" and url.endswith("/permissions/p1") for method, url, _, _ in calls)
     assert client.get("/settings").headers["Location"] == "/signin"
+
+
+def test_a_registered_user_lands_on_settings(client, monkeypatch):
+    registered(client, monkeypatch)
+    assert client.get("/").headers["Location"] == "/settings"
+
+
+@pytest.mark.parametrize("method", ["get", "post"])
+def test_settings_without_a_registry_row_sends_the_user_to_the_form(client, monkeypatch, method):
+    sign_in(client, monkeypatch)
+    assert getattr(client, method)("/settings").headers["Location"] == "/signup"
+
+
+def test_delete_without_a_registry_row_still_ends_the_session(client, monkeypatch):
+    sign_in(client, monkeypatch)
+    calls = fake_sheets(monkeypatch)
+    assert b"Removed" in client.post("/delete").data
+    assert calls == []
+    assert client.get("/settings").headers["Location"] == "/signin"
+
+
+def test_the_drive_callback_refuses_a_mismatched_state(client, monkeypatch):
+    sign_in(client, monkeypatch)
+    draft_profile, _ = drafts()
+    submit(client, monkeypatch, draft_profile)
+    calls = fake_sheets(monkeypatch)
+    assert client.get("/auth/drive/callback?code=drive-code&state=other").status_code == 400
+    assert calls == []

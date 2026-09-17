@@ -12,6 +12,10 @@ import urllib.request
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
+# The models every caller tries, in order, and the total attempts split between them.
+MODELS = ["gemini-3.8-flash", "gemini-3.5-flash"]
+RETRIES = 8
+
 
 RETRYABLE = (429, 500, 503)
 

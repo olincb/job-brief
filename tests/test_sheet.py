@@ -15,7 +15,8 @@ def fake_api(monkeypatch, sheet_id, existing_tabs, permissions=()):
         if method == "GET" and "/permissions" in url:
             return {"permissions": list(permissions)}
         if method == "GET" and "fields=sheets" in url:
-            return {"sheets": [{"properties": {"title": t}} for t in existing_tabs]}
+            return {"sheets": [{"properties": {"sheetId": index, "title": title}}
+                               for index, title in enumerate(existing_tabs)]}
         return {}
 
     monkeypatch.setattr(sheet, "api", api)
@@ -61,3 +62,33 @@ def test_read_tab_keys_rows_by_header_and_pads_short_rows(monkeypatch):
     assert sheet.read_tab("token", "sheet-id", "Seen") == [
         {"date_seen": "2026-09-01", "id": "greenhouse:acme:1", "url": ""},
     ]
+
+
+def test_add_editor_grants_edit_access_and_can_skip_the_notification(monkeypatch):
+    calls = fake_api(monkeypatch, "unused", existing_tabs=[])
+    sheet.add_editor("token", "sheet-id", "bot@example.iam.gserviceaccount.com", notify=False)
+    url, body = next((url, body) for method, url, body in calls if method == "POST")
+    assert "sendNotificationEmail=false" in url
+    assert body == {"type": "user", "role": "writer", "emailAddress": "bot@example.iam.gserviceaccount.com"}
+
+
+def test_remove_editor_drops_the_account_whatever_case_drive_reports_it_in(monkeypatch):
+    editor = [{"id": "p1", "role": "writer", "emailAddress": "Bot@Example.iam.gserviceaccount.com"}]
+    calls = fake_api(monkeypatch, "unused", existing_tabs=[], permissions=editor)
+    sheet.remove_editor("token", "sheet-id", "bot@example.iam.gserviceaccount.com")
+    assert [url for method, url, _ in calls if method == "DELETE"] == [f"{sheet.DRIVE}/sheet-id/permissions/p1"]
+
+
+def test_delete_row_finds_the_tab_by_name_and_removes_that_one_row(monkeypatch):
+    calls = fake_api(monkeypatch, "unused", existing_tabs=["Allowed", "Users"])
+    sheet.delete_row("token", "registry-id", "Users", 3)
+    body = next(body for _, url, body in calls if "batchUpdate" in url)
+    assert body["requests"][0]["deleteDimension"]["range"] == {
+        "sheetId": 1, "dimension": "ROWS", "startIndex": 2, "endIndex": 3}
+
+
+def test_read_cell_returns_the_text_and_an_empty_cell_as_an_empty_string(monkeypatch):
+    monkeypatch.setattr(sheet, "api", lambda *args, **kwargs: {"values": [["the profile prose"]]})
+    assert sheet.read_cell("token", "sheet-id", "Profile!A1") == "the profile prose"
+    monkeypatch.setattr(sheet, "api", lambda *args, **kwargs: {})
+    assert sheet.read_cell("token", "sheet-id", "Profile!A1") == ""
