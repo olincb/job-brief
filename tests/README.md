@@ -16,7 +16,9 @@ over recorded bodies.
   Sheets/Drive client (init_sheet lays the six tabs and never writes Profile,
   and share_sheet, against a fake request function that records the calls they
   would make); the registry selection
-  (inactive rows dropped, `ONLY_USERS` scoping, case-insensitive); and the
+  (inactive rows dropped, `ONLY_USERS` scoping, case-insensitive); profile
+  drafting (the generator prompt from an invented answers row, the level-word
+  widening of the title filters, a Word resume to text); and the
   mail message builder and failure-notice bodies (headers, multipart order,
   no address), which never open an SMTP connection.
 - `fixtures/<source>/<slug>.json`: a board's response saved unmodified.
