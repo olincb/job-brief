@@ -56,6 +56,34 @@ LISTS = {
 TERM_ANSWERS = ["fine", "meh", "no"]
 
 
+def blank_answers():
+    """A first signup's starting point: every column empty but the lists the questionnaire
+    offers back, which arrive already filled in for the user to reorder or untick."""
+    answers = {column: "" for column in ANSWERS_HEADER}
+    for column in ("work_types", "employer_types", "per_listing"):
+        answers[column] = "\n".join(LISTS[column])
+    return answers
+
+
+def _lines(cell):
+    return [line.strip() for line in (cell or "").splitlines() if line.strip()]
+
+
+def controls(answers):
+    """The tick marks and radio picks an `Answers` row sets, which a cell of joined phrases
+    cannot express on its own. A retake and a first signup both render the form from this."""
+    refused = _lines(answers.get("physical"))
+    offered = LISTS["physical"]
+    return {
+        "terms": {term.strip(): answer.strip()
+                  for term, answer in (line.split(":", 1) for line in _lines(answers.get("terms")) if ":" in line)},
+        "physical": [item for item in refused if item in offered],
+        # "all fine" is the empty answer, not something the user typed.
+        "physical_other": ", ".join(item for item in refused if item not in offered and item != "all fine"),
+        "per_listing": _lines(answers.get("per_listing")),
+    }
+
+
 def answers_from_form(form, resume_filename, submitted):
     """One `Answers` row keyed by the questionnaire's column names. A radio grid and a
     checkbox list both come out as one phrase per line, which is how the profile generator

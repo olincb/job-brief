@@ -51,4 +51,11 @@ profile), and the SES variables `BRIEF_FROM`,
 `SES_SMTP_HOST`, `SES_SMTP_USER`, `SES_SMTP_PASS`. Where those values come from
 and where they are kept is the operator's runbook, in the ops repo.
 
+## Removing a user
+
+A user removes themselves from the settings page. The operator's path is the same
+two edits, by hand and with no code: delete their row from the registry's `Users`
+tab, and remove the service account from the sharing list on their sheet. The
+sheet stays with the user either way.
+
 Status: design complete, implementation starting. Work is tracked in Issues.

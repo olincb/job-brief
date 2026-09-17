@@ -1,8 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
+{% if retake %}
+<h1>Retake the questionnaire</h1>
+<p>Your answers are filled in below. Submitting redrafts your profile and title filters
+from whatever you leave here; your postings and history are untouched.
+<a href="{{ url_for('settings') }}">Back to settings</a>.</p>
+{% else %}
 <h1>Set up your brief</h1>
 <p>About ten minutes, once. Only the four starred questions are required; the rest
 sharpen the ranking. Everything you write here goes into a sheet in your own Drive.</p>
+{% endif %}
 {% if message %}<p class="notice">{{ message }}</p>{% endif %}
 
 <form method="post" enctype="multipart/form-data">
@@ -10,11 +17,11 @@ sharpen the ranking. Everything you write here goes into a sheet in your own Dri
 <h2>About you</h2>
 
 <p><label for="field">1. What field or industry are you in, or trying to get into? *</label>
-<input type="text" id="field" name="field" required></p>
+<input type="text" id="field" name="field" value="{{ answers.field }}" required></p>
 
 <p><label for="experience">2. Years of relevant experience, and your most recent title. *</label>
 <span class="hint">Internships and certificates count; say so if that is what the number includes.</span>
-<input type="text" id="experience" name="experience" required></p>
+<input type="text" id="experience" name="experience" value="{{ answers.experience }}" required></p>
 
 <p><label for="resume">3. Resume</label>
 <span class="hint">PDF or Word, optional. It is sent to the model once and not stored.</span>
@@ -23,37 +30,36 @@ sharpen the ranking. Everything you write here goes into a sheet in your own Dri
 <p><label for="tools">4. Tools and skills you would claim.</label>
 <span class="hint">One per line, then a dash and <b>job</b> (used at a job), <b>class</b>
 (coursework or a project), or <b>heard of</b>.</span>
-<textarea id="tools" name="tools" rows="5" placeholder="GIS - job&#10;SCADA - class"></textarea></p>
+<textarea id="tools" name="tools" rows="5" placeholder="GIS - job&#10;SCADA - class">{{ answers.tools }}</textarea></p>
 
 <p><label for="certifications">5. Licenses or certifications you hold.</label>
 <span class="hint">One per line. Star any you do not have but would get quickly if a job wanted it.</span>
-<textarea id="certifications" name="certifications" rows="4"></textarea></p>
+<textarea id="certifications" name="certifications" rows="4">{{ answers.certifications }}</textarea></p>
 
 <h2>The work</h2>
 
 <p><label for="work_types">6. Kinds of work that sound good.</label>
 <span class="hint">Put them in order, most appealing first. Delete what you would not want
 at all, and add the specific version for your field.</span>
-<textarea id="work_types" name="work_types" rows="9">{% for item in lists.work_types %}{{ item }}
-{% endfor %}</textarea></p>
+<textarea id="work_types" name="work_types" rows="9">{{ answers.work_types }}</textarea></p>
 
 <p><label for="search_titles">7. Titles you would search for. *</label>
 <span class="hint">Three to five, one per line, spelled the way a job board would.</span>
-<textarea id="search_titles" name="search_titles" rows="5" required></textarea></p>
+<textarea id="search_titles" name="search_titles" rows="5" required>{{ answers.search_titles }}</textarea></p>
 
 <p><label for="exclude_titles">8. Titles or kinds of role you never want to see, even at a great place. *</label>
 <span class="hint">One per line, or "none".</span>
-<textarea id="exclude_titles" name="exclude_titles" rows="4" required></textarea></p>
+<textarea id="exclude_titles" name="exclude_titles" rows="4" required>{{ answers.exclude_titles }}</textarea></p>
 
 <p><label for="employer_types">9. Employers you would work for.</label>
 <span class="hint">In order of preference. Delete any you would rule out, add your own.</span>
-<textarea id="employer_types" name="employer_types" rows="8">{% for item in lists.employer_types %}{{ item }}
-{% endfor %}</textarea></p>
+<textarea id="employer_types" name="employer_types" rows="8">{{ answers.employer_types }}</textarea></p>
 
 <fieldset>
 <legend>10. A role below your training but inside your field, as a way in:</legend>
 {% for choice in ["yes", "maybe", "no"] %}
-<label class="choice"><input type="radio" name="entry_level" value="{{ choice }}"> {{ choice }}</label>
+<label class="choice"><input type="radio" name="entry_level" value="{{ choice }}"
+{% if answers.entry_level == choice %} checked{% endif %}> {{ choice }}</label>
 {% endfor %}
 </fieldset>
 
@@ -63,7 +69,7 @@ at all, and add the specific version for your field.</span>
 <span class="hint">Where you would work from, the longest one-way commute you would accept
 for a fully onsite job, whether hybrid works, and whether remote is required, preferred,
 or makes no difference.</span>
-<textarea id="location" name="location" rows="3"></textarea></p>
+<textarea id="location" name="location" rows="3">{{ answers.location }}</textarea></p>
 
 <fieldset>
 <legend>12. Terms.</legend>
@@ -71,7 +77,8 @@ or makes no difference.</span>
 <tr><th></th>{% for answer in term_answers %}<th>{{ answer }}</th>{% endfor %}</tr>
 {% for term in lists.terms %}{% set row = loop.index0 %}
 <tr><td>{{ term }}</td>
-{% for answer in term_answers %}<td><input type="radio" name="terms-{{ row }}" value="{{ answer }}"></td>{% endfor %}
+{% for answer in term_answers %}<td><input type="radio" name="terms-{{ row }}" value="{{ answer }}"
+{% if controls.terms.get(term) == answer %} checked{% endif %}></td>{% endfor %}
 </tr>
 {% endfor %}
 </table>
@@ -80,54 +87,62 @@ or makes no difference.</span>
 <fieldset>
 <legend>13. Physical conditions you would refuse.</legend>
 {% for item in lists.physical %}
-<label class="choice"><input type="checkbox" name="physical" value="{{ item }}"> {{ item }}</label>
+<label class="choice"><input type="checkbox" name="physical" value="{{ item }}"
+{% if item in controls.physical %} checked{% endif %}> {{ item }}</label>
 {% endfor %}
 <label for="physical_other" class="hint">Anything else, comma separated:</label>
-<input type="text" id="physical_other" name="physical_other">
+<input type="text" id="physical_other" name="physical_other" value="{{ controls.physical_other }}">
 </fieldset>
 
 <p><label for="pay">14. Pay.</label>
 <span class="hint">The lowest you would take, the number that would feel good, hourly or
 yearly, and which benefits would change the answer.</span>
-<textarea id="pay" name="pay" rows="2"></textarea></p>
+<textarea id="pay" name="pay" rows="2">{{ answers.pay }}</textarea></p>
 
 <p><label for="avoid_employers">15. Companies, industries, or employers you will not work for.</label>
 <span class="hint">One per line, or "none".</span>
-<textarea id="avoid_employers" name="avoid_employers" rows="3"></textarea></p>
+<textarea id="avoid_employers" name="avoid_employers" rows="3">{{ answers.avoid_employers }}</textarea></p>
 
 <h2>In your words</h2>
 
 <p><label for="about_you">16. About you.</label>
 <span class="hint">What you are good at, what your resume gets wrong about you, what a
 hiring manager should understand. This gets quoted into your profile rather than summarized.</span>
-<textarea id="about_you" name="about_you" rows="6"></textarea></p>
+<textarea id="about_you" name="about_you" rows="6">{{ answers.about_you }}</textarea></p>
 
 <p><label for="about_want">17. About what you want.</label>
 <span class="hint">The job you would be happiest to have started six months from now,
 described as a normal workday. Plus anything this form could not ask.</span>
-<textarea id="about_want" name="about_want" rows="6"></textarea></p>
+<textarea id="about_want" name="about_want" rows="6">{{ answers.about_want }}</textarea></p>
 
 <h2>The brief</h2>
 
 <fieldset>
 <legend>18. Stretch roles, a level or two above where you would likely get an interview:</legend>
-<label class="choice"><input type="radio" name="stretch" value="include them, labeled as stretches"> include them, labeled as stretches</label>
-<label class="choice"><input type="radio" name="stretch" value="leave them out"> leave them out</label>
+{% for choice in ["include them, labeled as stretches", "leave them out"] %}
+<label class="choice"><input type="radio" name="stretch" value="{{ choice }}"
+{% if answers.stretch == choice %} checked{% endif %}> {{ choice }}</label>
+{% endfor %}
 </fieldset>
 
 <fieldset>
 <legend>19. Per listing, show:</legend>
 {% for item in lists.per_listing %}
-<label class="choice"><input type="checkbox" name="per_listing" value="{{ item }}" checked> {{ item }}</label>
+<label class="choice"><input type="checkbox" name="per_listing" value="{{ item }}"
+{% if item in controls.per_listing %} checked{% endif %}> {{ item }}</label>
 {% endfor %}
 </fieldset>
 
 <p><label for="checked_sources">20. Job boards or employers you already check.</label>
 <span class="hint">One per line, or "none". This is the queue of sources to add, not a filter.</span>
-<textarea id="checked_sources" name="checked_sources" rows="3"></textarea></p>
+<textarea id="checked_sources" name="checked_sources" rows="3">{{ answers.checked_sources }}</textarea></p>
 
+{% if retake %}
+<p>Submitting redrafts the profile and filters in your sheet. Nothing else there changes.</p>
+{% else %}
 <p>Submitting drafts your profile, then asks Google for permission to create one
 spreadsheet in your Drive. That is the only thing this app ever touches there.</p>
-<p><button type="submit">Draft my profile</button></p>
+{% endif %}
+<p><button type="submit">{{ "Redraft my profile" if retake else "Draft my profile" }}</button></p>
 </form>
 {% endblock %}

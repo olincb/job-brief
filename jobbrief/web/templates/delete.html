@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Remove me</h1>
+<p>This drops your registry row and gives up the service account's access to your sheet.
+No more briefs, and nothing about you is left here.</p>
+<p>The sheet stays in your Drive, with everything in it. You can sign up again later; it
+would make a new one.</p>
+<form method="post">
+<p><button type="submit">Remove me</button></p>
+</form>
+<p><a href="{{ url_for('settings') }}">Keep my brief</a></p>
+{% endblock %}

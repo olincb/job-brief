@@ -21,9 +21,10 @@ over recorded bodies.
   widening of the title filters, a Word resume to text); the
   mail message builder and failure-notice bodies (headers, multipart order,
   no address), which never open an SMTP connection; and the web app's sign-in
-  and gate and its signup flow, against hand-built stand-ins for Google's token
-  and `userinfo` responses served through a fake `oauth.request`, with the
-  sheet writes recorded through a fake `sheet.api` and the model stage faked.
+  and gate, its signup flow, and settings, against hand-built stand-ins for
+  Google's token and `userinfo` responses served through a fake `oauth.request`,
+  with the sheet writes recorded through a fake `sheet.api` and the model stage
+  faked.
 - `fixtures/<source>/<slug>.json`: a board's response saved unmodified.
 - `fixtures/posting.txt`: one posting as `condense` receives it, after HTML is
   stripped. Chosen because it states years of experience, remote policy, and a

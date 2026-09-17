@@ -119,10 +119,27 @@ def append_rows(token, spreadsheet_id, tab, rows):
     api("POST", url, token, {"values": rows})
 
 
+def read_cell(token, spreadsheet_id, cell_range):
+    """One cell's text, or "" when it is empty. Profile's A1 is a tab with no header, so it
+    is read this way rather than through read_tab."""
+    values = api("GET", f"{SHEETS}/{spreadsheet_id}/values/{urllib.parse.quote(cell_range)}", token).get("values", [])
+    return values[0][0] if values and values[0] else ""
+
+
 def write_range(token, spreadsheet_id, cell_range, rows):
     """Overwrite a range with rows, anchored at cell_range (e.g. "Postings!A1")."""
     url = f"{SHEETS}/{spreadsheet_id}/values/{urllib.parse.quote(cell_range)}?valueInputOption=RAW"
     api("PUT", url, token, {"values": rows})
+
+
+def delete_row(token, spreadsheet_id, tab, row_number):
+    """Delete one row and close the gap behind it. `row_number` counts from 1 as the grid
+    shows it, so the first row under a header is 2. Deleting a dimension needs the tab's
+    numeric id rather than its title, hence the lookup."""
+    meta = api("GET", f"{SHEETS}/{spreadsheet_id}?fields=sheets.properties(sheetId,title)", token)
+    tab_id = next(s["properties"]["sheetId"] for s in meta["sheets"] if s["properties"]["title"] == tab)
+    api("POST", f"{SHEETS}/{spreadsheet_id}:batchUpdate", token, {"requests": [{"deleteDimension": {
+        "range": {"sheetId": tab_id, "dimension": "ROWS", "startIndex": row_number - 1, "endIndex": row_number}}}]})
 
 
 def create_spreadsheet(token, title, tabs):

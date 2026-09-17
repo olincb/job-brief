@@ -1,11 +1,62 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>You are set up</h1>
-<p>Your tracking sheet is in your Drive:
-<a href="{{ sheet_url }}">{{ sheet_url }}</a>. Edit your profile there; it is what the
-ranking reads.</p>
-<p>The operator reads your generated profile before the first brief goes out, so there is
-nothing else to do today.</p>
-<p>Settings — profile, title filters, frequency, pick cap, pause, and delete-me — land on
-this page.</p>
+<h1>Your brief</h1>
+<p>Your tracking sheet: <a href="{{ sheet_url }}">{{ sheet_url }}</a>. Everything below is
+editable there too; this page is the short way in.</p>
+{% if message %}<p class="notice">{{ message }}</p>{% endif %}
+
+<form method="post">
+
+<label for="profile">Profile</label>
+<span class="hint">The prose the ranking reads. Edit it freely; it is yours.</span>
+<textarea id="profile" name="profile" rows="16">{{ profile }}</textarea>
+
+<label for="title_filter">Titles to look for</label>
+<span class="hint">One per line, as a regular expression. A posting whose title matches
+any of these is shown to the model. An empty list means no brief.</span>
+<textarea id="title_filter" name="title_filter" rows="6">{{ settings.title_filter }}</textarea>
+
+<label for="title_exclude">Titles to drop</label>
+<span class="hint">One per line. Checked first: a match here is never shown.</span>
+<textarea id="title_exclude" name="title_exclude" rows="6">{{ settings.title_exclude }}</textarea>
+
+<fieldset>
+<legend>How often</legend>
+{% for choice in ["daily", "weekdays", "weekly"] %}
+<label class="choice"><input type="radio" name="frequency" value="{{ choice }}"
+{% if frequency == choice %} checked{% endif %}> {{ choice }}</label>
+{% endfor %}
+<span class="hint">Weekly briefs go out on Monday.</span>
+</fieldset>
+
+<label for="max_picks">Picks per brief</label>
+<input type="text" id="max_picks" name="max_picks" value="{{ settings.max_picks }}">
+
+<fieldset>
+<legend>Pause</legend>
+<label class="choice"><input type="checkbox" name="paused"{% if paused %} checked{% endif %}>
+Hold my briefs until I come back</label>
+</fieldset>
+
+<p><button type="submit">Save</button></p>
+</form>
+
+<h2>Recent runs</h2>
+{% if runs %}
+<div class="scroll">
+<table>
+<tr>{% for column in run_columns %}<th>{{ column }}</th>{% endfor %}</tr>
+{% for run in runs %}
+<tr>{% for column in run_columns %}<td>{{ run[column] }}</td>{% endfor %}</tr>
+{% endfor %}
+</table>
+</div>
+{% else %}
+<p>Nothing yet. The first run will show up here.</p>
+{% endif %}
+
+<h2>Other things</h2>
+<p><a href="{{ url_for('signup') }}">Retake the questionnaire</a> — regenerates your
+profile and title filters from fresh answers, and leaves your postings and history alone.</p>
+<p><a href="{{ url_for('confirm_delete') }}">Remove me</a></p>
 {% endblock %}

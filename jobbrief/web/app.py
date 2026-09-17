@@ -1,9 +1,10 @@
-"""Sign-in, the invite gate, signup, and the pages behind it.
+"""Sign-in, the invite gate, signup, and settings.
 
 A signed httpOnly cookie holds the signed-in email and nothing else; an OAuth token is
 used inside the callback that got it and discarded. Every route but sign-in, the sign-in
 callback, and the invite page requires a gated session, so a page added later is behind
-the gate unless it is named here."""
+the gate unless it is named here. Once a user has a sheet, the service account does the
+reading and writing: the user's own token is asked for once, to create it."""
 
 import json
 import os
@@ -26,6 +27,8 @@ ALLOWED_TTL = 60  # seconds; a woken Machine pays one Sheets call for a burst of
 STASH_TTL = 3600  # seconds; an abandoned signup should not sit in memory for the life of the process
 SHEET_TITLE = "Job Brief"
 SHEET_URL = "https://docs.google.com/spreadsheets/d/{}"
+RECENT_RUNS = 10
+EDITABLE_SETTINGS = ["title_filter", "title_exclude", "max_picks"]  # lookback_days stays as signup wrote it
 # The daily run's models and retry budget, which `jobbrief.cli` takes as flag defaults.
 MODELS = ["gemini-3.8-flash", "gemini-3.5-flash"]
 RETRIES = 8
@@ -34,13 +37,25 @@ _allowed = (0.0, frozenset())
 _stash = {}
 
 
+def bot_token():
+    """A service-account token. One per request that needs the registry or a user's sheet."""
+    return sheet.service_account_token(os.environ["SERVICE_ACCOUNT_JSON"])
+
+
+def service_account_email():
+    return json.loads(os.environ["SERVICE_ACCOUNT_JSON"])["client_email"]
+
+
+def today():
+    return datetime.now().strftime("%Y-%m-%d")
+
+
 def allowed_emails():
     """The `Allowed` tab as lowercased addresses, re-read at most once every ALLOWED_TTL."""
     global _allowed
     fetched_at, emails = _allowed
     if time.time() - fetched_at > ALLOWED_TTL:
-        token = sheet.service_account_token(os.environ["SERVICE_ACCOUNT_JSON"])
-        rows = sheet.read_tab(token, os.environ["REGISTRY_SHEET_ID"], "Allowed")
+        rows = sheet.read_tab(bot_token(), os.environ["REGISTRY_SHEET_ID"], "Allowed")
         emails = frozenset(row.get("email", "").strip().lower() for row in rows)
         _allowed = (time.time(), emails)
     return emails
@@ -51,12 +66,15 @@ def is_allowed(email):
     return email == os.environ["OPERATOR_EMAIL"].strip().lower() or email in allowed_emails()
 
 
-def registry_row(email):
-    """This user's `Users` row, or None when they have not signed up. Not cached: a user
-    who has just finished signup must not be sent back to the form."""
-    token = sheet.service_account_token(os.environ["SERVICE_ACCOUNT_JSON"])
+def user_row(token, email):
+    """This user's `Users` row and the grid row it sits on, or `(None, 0)` when they have
+    not signed up. Not cached: a user who has just finished signup, or just paused, must
+    not be shown the state they left. The row number is what a save writes back to."""
     rows = sheet.read_tab(token, os.environ["REGISTRY_SHEET_ID"], "Users")
-    return next((row for row in rows if row.get("email", "").strip().lower() == email), None)
+    for number, row in enumerate(rows, start=2):  # row 1 is the header
+        if row.get("email", "").strip().lower() == email:
+            return row, number
+    return None, 0
 
 
 def notify_operator(email):
@@ -75,24 +93,35 @@ def stash(key, entry):
     _stash[key] = dict(entry, created=time.time())
 
 
+def write_settings(token, sheet_id, updates):
+    """Merge values into the `Settings` tab, which is key and value from row 2 down. Read
+    first so a key this page does not offer keeps whatever it holds."""
+    values = {row["key"]: row["value"] for row in sheet.read_tab(token, sheet_id, "Settings")}
+    values.update(updates)
+    sheet.write_range(token, sheet_id, "Settings!A2", [[key, value] for key, value in values.items()])
+
+
+def write_signup(token, sheet_id, answers, profile_text, settings):
+    """The three tabs a signup and a retake both write. `Answers` holds one row, so row 2 is
+    overwritten rather than appended to, and `Postings`, `Seen` and `Runs` are never touched."""
+    sheet.write_range(token, sheet_id, "Answers!A2", [[answers[column] for column in sheet.ANSWERS_HEADER]])
+    sheet.write_range(token, sheet_id, "Profile!A1", [[profile_text]])
+    write_settings(token, sheet_id, settings)
+
+
 def create_user_sheet(token, entry):
-    """The user's own sheet, made with their seconds-old `drive.file` token: six tabs, the
-    answers, the profile, and the mechanical settings, with the service account added as
-    editor so the daily run can read and write it. Returns the sheet id."""
+    """The user's own sheet, made with their seconds-old `drive.file` token: six tabs, their
+    answers, and the service account as editor so the daily run can read and write it."""
     sheet_id = sheet.init_sheet(token, "", SHEET_TITLE)
-    sheet.add_editor(token, sheet_id, json.loads(os.environ["SERVICE_ACCOUNT_JSON"])["client_email"], notify=False)
-    sheet.append_rows(token, sheet_id, "Answers", [[entry["answers"][column] for column in sheet.ANSWERS_HEADER]])
-    sheet.write_range(token, sheet_id, "Profile!A1", [[entry["profile"]]])
-    sheet.append_rows(token, sheet_id, "Settings", [[key, value] for key, value in entry["settings"].items()])
+    sheet.add_editor(token, sheet_id, service_account_email(), notify=False)
+    write_signup(token, sheet_id, entry["answers"], entry["profile"], entry["settings"])
     return sheet_id
 
 
-def register(email, sheet_id):
-    """Append the `Users` row through the service account. `active` is `no`: a new user is a
-    draft until the operator has read the generated profile."""
-    row = {"email": email, "sheet_id": sheet_id, "active": "no", "frequency": "daily",
-           "added": datetime.now().strftime("%Y-%m-%d")}
-    token = sheet.service_account_token(os.environ["SERVICE_ACCOUNT_JSON"])
+def register(token, email, sheet_id):
+    """Append the `Users` row. `active` is `no`: a new user is a draft until the operator has
+    read the generated profile."""
+    row = {"email": email, "sheet_id": sheet_id, "active": "no", "frequency": "daily", "added": today()}
     sheet.append_rows(token, os.environ["REGISTRY_SHEET_ID"], "Users",
                       [[row[column] for column in registry.USERS_HEADER]])
 
@@ -106,8 +135,13 @@ def send_welcome(email, sheet_id):
               f"Your tracking sheet:\n\n{url}\n\n{review}")
 
 
-def signup_page(message=""):
-    return render_template("signup.html", lists=form.LISTS, term_answers=form.TERM_ANSWERS, message=message)
+def signup_page(answers=None, message="", retake=False):
+    """The questionnaire, filled in from an `Answers` row: the user's own on a retake, what
+    they just submitted when the model failed on them, and the offered lists otherwise."""
+    answers = answers or form.blank_answers()
+    return render_template("signup.html", answers=answers, controls=form.controls(answers),
+                           lists=form.LISTS, term_answers=form.TERM_ANSWERS,
+                           message=message, retake=retake)
 
 
 def create_app():
@@ -124,7 +158,8 @@ def create_app():
 
     @app.get("/")
     def home():
-        return redirect(url_for("settings") if registry_row(session["email"]) else url_for("signup"))
+        row, _ = user_row(bot_token(), session["email"])
+        return redirect(url_for("settings") if row else url_for("signup"))
 
     @app.get("/signin")
     def signin():
@@ -136,37 +171,84 @@ def create_app():
 
     @app.get("/settings")
     def settings():
-        row = registry_row(session["email"])
+        token = bot_token()
+        row, _ = user_row(token, session["email"])
         if not row:
             return redirect(url_for("signup"))
-        return render_template("settings.html", sheet_url=SHEET_URL.format(row["sheet_id"]))
+        sheet_id = row["sheet_id"]
+        values = {entry["key"]: entry["value"] for entry in sheet.read_tab(token, sheet_id, "Settings")}
+        runs = sheet.read_tab(token, sheet_id, "Runs")[-RECENT_RUNS:][::-1]
+        return render_template("settings.html", sheet_url=SHEET_URL.format(sheet_id),
+                               profile=sheet.read_cell(token, sheet_id, "Profile!A1"), settings=values,
+                               frequency=row.get("frequency", ""),
+                               paused=row.get("active", "").strip().lower() != "yes",
+                               runs=runs, run_columns=sheet.RUNS_HEADER)
+
+    @app.post("/settings")
+    def save():
+        """Frequency and pause live on the registry row so the run can skip a non-send day
+        without opening the sheet; everything else is the user's sheet."""
+        token = bot_token()
+        row, number = user_row(token, session["email"])
+        if not row:
+            return redirect(url_for("signup"))
+        sheet.write_range(token, row["sheet_id"], "Profile!A1", [[request.form.get("profile", "")]])
+        write_settings(token, row["sheet_id"], {key: request.form.get(key, "") for key in EDITABLE_SETTINGS})
+        updated = dict(row, frequency=request.form.get("frequency", row.get("frequency", "")),
+                       active="no" if request.form.get("paused") else "yes")
+        sheet.write_range(token, os.environ["REGISTRY_SHEET_ID"], f"Users!A{number}",
+                          [[updated[column] for column in registry.USERS_HEADER]])
+        return redirect(url_for("settings"))
 
     @app.get("/signup")
     def signup():
-        if registry_row(session["email"]):
-            return redirect(url_for("settings"))
-        return signup_page()
+        token = bot_token()
+        row, _ = user_row(token, session["email"])
+        if not row:
+            return signup_page()
+        answers = sheet.read_tab(token, row["sheet_id"], "Answers")
+        return signup_page(answers[0] if answers else None, retake=True)
 
     @app.post("/signup")
     def submit():
-        """Everything that does not need Drive: the resume is read, the profile drafted, and
-        the answers held in memory, so a model failure ends signup with nothing to clean up."""
+        """Everything that does not need Drive: the resume is read and the profile drafted
+        before anything is written, so a model failure costs the user nothing but the wait.
+        A user who already has a sheet is retaking the questionnaire, and writes to it."""
+        token = bot_token()
+        row, _ = user_row(token, session["email"])
         upload = request.files.get("resume")
         resume = (upload.filename, upload.read()) if upload and upload.filename else None
-        answers = form.answers_from_form(request.form, resume[0] if resume else "",
-                                         datetime.now().strftime("%Y-%m-%d"))
+        answers = form.answers_from_form(request.form, resume[0] if resume else "", today())
         try:
             profile_text, settings = profile.draft_profile(answers, MODELS, os.environ["GEMINI_API_KEY"],
                                                            RETRIES, resume=resume)
         except SystemExit as failure:
             print(f"profile generation failed: {failure}")
-            return signup_page("The model could not draft a profile just now. Nothing was created, "
-                               "and filling the form in again is all it takes.")
+            return signup_page(answers, "The model could not draft a profile just now. Nothing was "
+                               "written, and submitting again is all it takes.", retake=bool(row))
+        if row:
+            write_signup(token, row["sheet_id"], answers, profile_text, settings)
+            return redirect(url_for("settings"))
         session["signup"] = secrets.token_urlsafe(16)
         stash(session["signup"], {"answers": answers, "profile": profile_text, "settings": settings})
         session["state"] = secrets.token_urlsafe(16)
         return redirect(oauth.auth_url(os.environ["GOOGLE_CLIENT_ID"], url_for("drive_callback", _external=True),
                                        DRIVE_SCOPES, session["state"], login_hint=session["email"]))
+
+    @app.get("/delete")
+    def confirm_delete():
+        return render_template("delete.html")
+
+    @app.post("/delete")
+    def delete():
+        token = bot_token()
+        row, number = user_row(token, session["email"])
+        if row:
+            # The roster first: a user the run cannot serve must not be left on it.
+            sheet.delete_row(token, os.environ["REGISTRY_SHEET_ID"], "Users", number)
+            sheet.remove_editor(token, row["sheet_id"], service_account_email())
+        session.clear()
+        return render_template("removed.html")
 
     @app.get("/auth/login")
     def login():
@@ -198,12 +280,12 @@ def create_app():
             abort(400)
         entry = _stash.pop(session.pop("signup", ""), None)
         if not entry:
-            return signup_page("Your answers were not here when you came back, so nothing was "
-                               "created. Filling the form in again is all it takes.")
+            return signup_page(message="Your answers were not here when you came back, so nothing was "
+                                       "created. Filling the form in again is all it takes.")
         token = oauth.exchange_code(request.args.get("code", ""), url_for("drive_callback", _external=True),
                                     os.environ["GOOGLE_CLIENT_ID"], os.environ["GOOGLE_CLIENT_SECRET"])
         sheet_id = create_user_sheet(token, entry)
-        register(session["email"], sheet_id)
+        register(bot_token(), session["email"], sheet_id)
         send_welcome(session["email"], sheet_id)
         return redirect(url_for("settings"))
 
