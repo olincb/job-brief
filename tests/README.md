@@ -16,9 +16,11 @@ over recorded bodies.
   Sheets/Drive client (init_sheet lays the six tabs and never writes Profile,
   and share_sheet, against a fake request function that records the calls they
   would make); the registry selection
-  (inactive rows dropped, `ONLY_USERS` scoping, case-insensitive); and the
+  (inactive rows dropped, `ONLY_USERS` scoping, case-insensitive); the
   mail message builder and failure-notice bodies (headers, multipart order,
-  no address), which never open an SMTP connection.
+  no address), which never open an SMTP connection; and the web app's sign-in
+  and gate, against hand-built stand-ins for Google's token and `userinfo`
+  responses served through a fake `oauth.request`.
 - `fixtures/<source>/<slug>.json`: a board's response saved unmodified.
 - `fixtures/posting.txt`: one posting as `condense` receives it, after HTML is
   stripped. Chosen because it states years of experience, remote policy, and a

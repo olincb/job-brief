@@ -26,4 +26,28 @@ python -m jobbrief --help
 
 Standard library only; Python 3.11 or newer.
 
+## Web app
+
+Sign-in, signup, and settings, in the `web` extra (Flask behind waitress). Run it
+locally with placeholder values, or build the `Dockerfile`, which serves the same
+command on port 8080:
+
+```
+pip install -e ".[web]"
+python -m jobbrief.web
+```
+
+Set up a Google OAuth client first: a **web application** client in the same
+Cloud project as the service account, with `<your base URL>/auth/callback` as an
+authorized redirect URI. On the consent screen, list the identity scopes
+(`openid`, `email`, `profile`) and `drive.file`, which signup asks for in a
+second consent step, and publish the screen to Production. All four are
+non-sensitive, so there is no verification review.
+
+The app reads `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SESSION_KEY` (any
+long random string, which signs the session cookie), `SERVICE_ACCOUNT_JSON`,
+`REGISTRY_SHEET_ID`, `OPERATOR_EMAIL`, and the SES variables `BRIEF_FROM`,
+`SES_SMTP_HOST`, `SES_SMTP_USER`, `SES_SMTP_PASS`. Where those values come from
+and where they are kept is the operator's runbook, in the ops repo.
+
 Status: design complete, implementation starting. Work is tracked in Issues.

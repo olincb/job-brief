@@ -8,8 +8,9 @@ is added. The design and its reasons are in `design.md`; this is only a map.
 
 - `AGENTS.md` — the contract for working here: non-negotiables, workflow, this map's rule.
 - `CLAUDE.md` — imports `AGENTS.md` for Claude Code.
-- `README.md` — what the project is and the one install command.
-- `pyproject.toml` — package metadata, the one runtime dependency (`google-auth`), pytest configuration.
+- `README.md` — what the project is, the install command, and the web app's OAuth and environment setup.
+- `pyproject.toml` — package metadata, the one runtime dependency (`google-auth`), the `web` extra, pytest configuration.
+- `Dockerfile` — the web app image: install the `web` extra, serve `python -m jobbrief.web`. `fly.toml` and the secrets are in the ops repo.
 - `LICENSE` — MIT.
 
 ## `jobbrief/` — the engine
@@ -27,6 +28,14 @@ is added. The design and its reasons are in `design.md`; this is only a map.
 - `find_boards.py` — operator tool: turns company names into verified ATS slugs for `sources.base.json`.
 - `data/prompt.md` — instructions to the model: scoring rubric, brief layout, JSON contract.
 - `data/sources.base.json` — shared board slugs per ATS, Climatebase queries, and the whole-feed sources everyone runs against.
+
+## `jobbrief/web/` — the web app
+
+- `__init__.py` — package docstring only.
+- `__main__.py` — `python -m jobbrief.web`: waitress serving the app on 8080.
+- `app.py` — the Flask app: the `Allowed` lookup and the gate, the operator's invite notice, the sign-in and OAuth routes, and the pages. The only web module that reads the environment.
+- `oauth.py` — Google's authorization-code flow: the consent URL, the code exchange, and the verified email from `userinfo`. One request function, faked in tests.
+- `templates/` — `base.html` and the three pages: `signin.html`, `invite.html`, `home.html`.
 
 ## `docs/`
 
@@ -46,6 +55,7 @@ Verify command: `python -m pytest`. Runs with no network; see `tests/README.md`.
 - `test_heartbeat.py` — the heartbeat rule over synthetic Runs rows.
 - `test_registry.py` — `users_to_run`: inactive rows dropped, no filter returns all active, `ONLY_USERS` restricts case-insensitively.
 - `test_sheet.py` — `init_sheet` lays the six tabs, adds missing ones, writes every header but Profile, and shares.
+- `test_web.py` — sign-in scopes, the gate (allowed, operator, unknown address), the invite email, and state and verification refusals.
 - `test_fetch.py` — Greenhouse fetcher against the recording, unreachable board skipped, title filters, Seen dedup.
 - `fixtures/greenhouse/gradle.json` — one Greenhouse board response, saved unmodified.
 - `fixtures/posting.txt` — one posting as `condense` receives it.
