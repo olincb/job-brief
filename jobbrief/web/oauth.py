@@ -22,16 +22,20 @@ def request(url, data=None, token=None):
         return json.load(response)
 
 
-def auth_url(client_id, redirect_uri, scopes, state):
-    """Where to send the browser to start a consent step."""
-    return AUTH + "?" + urllib.parse.urlencode({
+def auth_url(client_id, redirect_uri, scopes, state, login_hint=None):
+    """Where to send the browser to start a consent step. `login_hint` names the account
+    already signed in, so the second step is one click rather than an account chooser."""
+    params = {
         "client_id": client_id,
         "redirect_uri": redirect_uri,
         "response_type": "code",
         "scope": " ".join(scopes),
         "state": state,
         "access_type": "online",  # no token outlives the request that got it, so no refresh token is asked for
-    })
+    }
+    if login_hint:
+        params["login_hint"] = login_hint
+    return AUTH + "?" + urllib.parse.urlencode(params)
 
 
 def exchange_code(code, redirect_uri, client_id, client_secret):
