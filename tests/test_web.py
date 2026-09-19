@@ -395,3 +395,9 @@ def test_the_drive_callback_refuses_a_mismatched_state(client, monkeypatch):
     calls = fake_sheets(monkeypatch)
     assert client.get("/auth/drive/callback?code=drive-code&state=other").status_code == 400
     assert calls == []
+
+
+def test_signing_out_ends_the_session(client, monkeypatch):
+    sign_in(client, monkeypatch)
+    assert client.post("/signout").headers["Location"] == "/signin"
+    assert client.get("/").headers["Location"] == "/signin"

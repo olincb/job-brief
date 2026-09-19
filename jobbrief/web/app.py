@@ -22,7 +22,8 @@ from jobbrief.web import form, oauth
 
 SCOPES = ["openid", "email", "profile"]  # drive.file is asked for at signup, in its own consent step
 DRIVE_SCOPES = ["https://www.googleapis.com/auth/drive.file"]
-OPEN_ENDPOINTS = {"signin", "login", "callback", "invite", "static"}
+OPEN_ENDPOINTS = {"signin", "login", "callback", "invite", "signout", "static"}  # signout is open so a
+# session that is signed in but not on the Allowed tab can still end itself
 ALLOWED_TTL = 60  # seconds; a woken Machine pays one Sheets call for a burst of requests, not one each
 STASH_TTL = 3600  # seconds; an abandoned signup should not sit in memory for the life of the process
 SHEET_TITLE = "Job Brief"
@@ -167,6 +168,11 @@ def create_app():
     @app.get("/invite")
     def invite():
         return render_template("invite.html")
+
+    @app.post("/signout")
+    def signout():
+        session.clear()
+        return redirect(url_for("signin"))
 
     @app.get("/settings")
     def settings():
