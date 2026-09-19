@@ -53,9 +53,12 @@ and where they are kept is the operator's runbook, in the ops repo.
 
 ## Removing a user
 
-A user removes themselves from the settings page. The operator's path is the same
-two edits, by hand and with no code: delete their row from the registry's `Users`
-tab, and remove the service account from the sharing list on their sheet. The
-sheet stays with the user either way.
+A user removes themselves from the settings page. The operator switches someone
+off by deleting their row from the registry's `Allowed` tab: sign-in is refused
+and the daily run skips them, and adding the row back turns them on again with
+their settings and sheet untouched. Removing someone for good is the same two
+edits the settings page makes, by hand and with no code: delete their row from
+the `Users` tab, and remove the service account from the sharing list on their
+sheet. The sheet stays with the user either way.
 
 Status: design complete, implementation starting. Work is tracked in Issues.

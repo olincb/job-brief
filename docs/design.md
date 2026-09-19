@@ -21,7 +21,7 @@ choices below assume that.
 | Engine | public GitHub repo | nothing | none | none |
 | Daily job | GitHub Actions, scheduled, in a private ops repo that pins the engine | service account; Gemini key; SES SMTP credentials | those three | none |
 | Web app: sign-in, signup form, settings | Fly.io, one auto-stop Machine, Flask behind waitress, server-rendered | Google OAuth client for identity; service account for Sheets and Drive | OAuth client secret, session key, service account key, Gemini key, SES SMTP credentials | transient signup stash between form submit and Drive consent; lost on restart |
-| Registry sheet | Drive, owned by the operator, service account as editor | | | `Users`: email, sheet_id, active, frequency, added. `Allowed`: email, added. |
+| Registry sheet | Drive, owned by the operator, service account as editor | | | `Users`: email, sheet_id, active, frequency, added. `Allowed`: email, added, and the operator's switch for one person, read by the app at sign-in and by the run each day. |
 | Per-user sheet | the user's own Drive, service account as editor | | | Answers, Profile, Settings, Postings, Seen, Runs |
 | Email | Amazon SES, `brief@<your-domain>`, production access | | SMTP credentials | |
 
@@ -66,7 +66,9 @@ anything in the engine, is always allowed. An
 unknown address sees an invite-only page and triggers one email to the
 operator naming the address. Nothing else is created, so an uninvited
 login costs nothing. A signed approve link in that email is a later
-addition; until then approval is adding a row to `Allowed`.
+addition; until then approval is adding a row to `Allowed`. That row is
+not only the door: the daily run reads the same tab, so deleting it stops
+someone's briefs as well as their sign-in.
 
 Why not a SPA with PKCE: a backend exists regardless for Gemini, SES, the
 registry and the service account, so PKCE would only move sheet creation
@@ -124,7 +126,7 @@ app just made.
 
 1. Fetch every source once into a raw pool: company boards, Climatebase,
    Hacker News, RemoteOK, Himalayas, Apple, and whatever is added later.
-2. For each user whose frequency makes today a send day: read their tabs,
+2. For each user in `Allowed` whose frequency makes today a send day: read their tabs,
    drop postings already in `Seen` or older than the lookback (stretched
    to cover the gap since their last send), apply their title filters,
    condense each posting to its requirements, one Gemini call with the
@@ -149,8 +151,11 @@ Frequency and pause write to the registry row, not the user's sheet, so the
 daily run decides a non-send day without opening the sheet; the rest write
 to `Settings`. Weekly users get their brief on Monday.
 Delete-me removes the registry row and the service account's editor
-access; the sheet stays with the user. The operator's removal path is the
-same two edits.
+access; the sheet stays with the user, and those two edits are also the
+operator's permanent removal path. To switch someone off without removing
+them, the operator deletes their `Allowed` row: sign-in is refused, the
+run skips them, and their `Users` row, pause state and sheet are as they
+left them until the row goes back.
 
 ## Sources
 
