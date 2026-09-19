@@ -234,7 +234,7 @@ def create_app():
         session["signup"] = secrets.token_urlsafe(16)
         stash(session["signup"], {"answers": answers, "profile": profile_text, "settings": settings})
         session["state"] = secrets.token_urlsafe(16)
-        return redirect(oauth.auth_url(os.environ["GOOGLE_CLIENT_ID"], url_for("drive_callback", _external=True),
+        return redirect(oauth.auth_url(os.environ["GCP_OAUTH_CLIENT_ID"], url_for("drive_callback", _external=True),
                                        DRIVE_SCOPES, session["state"], login_hint=session["email"]))
 
     @app.get("/delete")
@@ -255,7 +255,7 @@ def create_app():
     @app.get("/auth/login")
     def login():
         session["state"] = secrets.token_urlsafe(16)
-        return redirect(oauth.auth_url(os.environ["GOOGLE_CLIENT_ID"],
+        return redirect(oauth.auth_url(os.environ["GCP_OAUTH_CLIENT_ID"],
                                        url_for("callback", _external=True), SCOPES, session["state"]))
 
     @app.get("/auth/callback")
@@ -264,7 +264,7 @@ def create_app():
         if not state or request.args.get("state") != state:
             abort(400)
         token = oauth.exchange_code(request.args.get("code", ""), url_for("callback", _external=True),
-                                    os.environ["GOOGLE_CLIENT_ID"], os.environ["GOOGLE_CLIENT_SECRET"])
+                                    os.environ["GCP_OAUTH_CLIENT_ID"], os.environ["GCP_OAUTH_CLIENT_SECRET"])
         email = oauth.verified_email(token)
         if not email:
             abort(400)
@@ -285,7 +285,7 @@ def create_app():
             return signup_page(message="Your answers were not here when you came back, so nothing was "
                                        "created. Filling the form in again is all it takes.")
         token = oauth.exchange_code(request.args.get("code", ""), url_for("drive_callback", _external=True),
-                                    os.environ["GOOGLE_CLIENT_ID"], os.environ["GOOGLE_CLIENT_SECRET"])
+                                    os.environ["GCP_OAUTH_CLIENT_ID"], os.environ["GCP_OAUTH_CLIENT_SECRET"])
         sheet_id = create_user_sheet(token, entry)
         register(bot_token(), session["email"], sheet_id)
         send_welcome(session["email"], sheet_id)

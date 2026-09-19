@@ -12,8 +12,8 @@ from jobbrief.web.app import create_app
 
 
 ENV = {
-    "GOOGLE_CLIENT_ID": "client-id.apps.googleusercontent.com",
-    "GOOGLE_CLIENT_SECRET": "client-secret",
+    "GCP_OAUTH_CLIENT_ID": "client-id.apps.googleusercontent.com",
+    "GCP_OAUTH_CLIENT_SECRET": "client-secret",
     "SESSION_KEY": "session-key",
     "SERVICE_ACCOUNT_JSON": '{"client_email": "bot@example.iam.gserviceaccount.com"}',
     "REGISTRY_SHEET_ID": "registry-sheet-id",

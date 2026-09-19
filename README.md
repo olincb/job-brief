@@ -44,7 +44,7 @@ authorized redirect URI. On the consent screen, list the identity scopes
 second consent step, and publish the screen to Production. All four are
 non-sensitive, so there is no verification review.
 
-The app reads `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SESSION_KEY` (any
+The app reads `GCP_OAUTH_CLIENT_ID`, `GCP_OAUTH_CLIENT_SECRET`, `SESSION_KEY` (any
 long random string, which signs the session cookie), `SERVICE_ACCOUNT_JSON`,
 `REGISTRY_SHEET_ID`, `OPERATOR_EMAIL`, `GEMINI_API_KEY` (signup drafts the
 profile), and the SES variables `BRIEF_FROM`,
