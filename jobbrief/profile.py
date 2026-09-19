@@ -3,7 +3,6 @@ and resume, and the title filters derived from the same answers. It runs before 
 exists in the user's Drive, so a model failure ends signup with nothing to clean up."""
 
 import io
-import json
 import re
 import zipfile
 from importlib.resources import files
@@ -18,9 +17,6 @@ DATA = files("jobbrief.data")
 # The Answers columns the model is shown: the resume filename and the submit date say
 # nothing about the person.
 ASKED = [column for column in ANSWERS_HEADER if column not in ("resume", "submitted")]
-
-# Years of experience at which each band of level words starts, most experience first.
-BANDS = [(8, "senior"), (2, "mid"), (0, "entry")]
 
 WORD_XML = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 
@@ -46,42 +42,18 @@ def _phrases(cell):
     return [line for line in lines if line and line.lower() != "none"]
 
 
-def _years(experience):
-    """The number in the answer to question 2, which is a number and a phrase."""
-    match = re.search(r"\d+", experience or "")
-    return int(match.group()) if match else 0
+def _pattern(phrase):
+    """A typed phrase as one regex line of a Settings cell: escaped so `C++` is literal,
+    with spaces left alone so the line stays readable to whoever edits it."""
+    return re.escape(phrase).replace("\\ ", " ")
 
 
-def _pattern(phrase, anchored=False):
-    """A phrase as one regex line of a Settings cell: escaped so `C++` is literal, with
-    spaces left alone so the line stays readable to whoever edits it. A word this module
-    generated is anchored to word boundaries, so `intern` does not also drop
-    "International Analyst"; a phrase the user typed is left as they typed it."""
-    escaped = re.escape(phrase).replace("\\ ", " ")
-    return rf"\b{escaped}\b" if anchored else escaped
-
-
-def title_filters(answers, role_titles):
-    """Questions 7 and 8 as the two regex lists Settings holds. A search phrase that opens
-    with a level word is repeated at each level word of the band the years in question 2 put
-    the user in, because boards spell the same job at a different level. Only the opening
-    word is swapped: elsewhere the word is the job rather than the level, and substituting
-    into "lab supervisor" invents a title nobody posts. Question 10 decides the entry-level
-    words: they are excluded outright only when the user said no to a role below their
-    training."""
-    band = next(name for floor, name in BANDS if _years(answers.get("experience")) >= floor)
-    known = {word for words in role_titles.values() for word in words}
-    filters = []
-    for phrase in _phrases(answers.get("search_titles")):
-        filters.append(_pattern(phrase))
-        head, _, rest = phrase.partition(" ")
-        if rest and head.lower() in known:
-            filters.extend(_pattern(f"{level} {rest}", anchored=True)
-                           for level in role_titles[band] if level.lower() != head.lower())
-    excludes = [_pattern(phrase) for phrase in _phrases(answers.get("exclude_titles"))]
-    if answers.get("entry_level", "").strip().lower() == "no":
-        excludes += [_pattern(word, anchored=True) for word in role_titles["entry"]]
-    return list(dict.fromkeys(filters)), list(dict.fromkeys(excludes))
+def title_filters(answers):
+    """Questions 7 and 8 as the two regex lists Settings holds: the phrases the user typed,
+    one per line. What a title word says about seniority is a judgment, and one that reads
+    differently in every field, so the profile carries it and these stay literal."""
+    return ([_pattern(phrase) for phrase in _phrases(answers.get("search_titles"))],
+            [_pattern(phrase) for phrase in _phrases(answers.get("exclude_titles"))])
 
 
 def build_prompt(template, answers, resume_text=""):
@@ -111,7 +83,7 @@ def draft_profile(answers, models, api_key, retries, resume=None):
             raise ValueError(f"{filename} is not a PDF or a .docx")
     prompt = build_prompt(DATA.joinpath("profile_prompt.md").read_text(), answers, resume_text)
     profile, _model, _usage = generate(prompt, models, api_key, retries, pdf=pdf)
-    title_filter, title_exclude = title_filters(answers, json.loads(DATA.joinpath("role_titles.json").read_text()))
+    title_filter, title_exclude = title_filters(answers)
     return profile, {
         "title_filter": "\n".join(title_filter),
         "title_exclude": "\n".join(title_exclude),

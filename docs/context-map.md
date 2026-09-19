@@ -22,14 +22,13 @@ is added. The design and its reasons are in `design.md`; this is only a map.
 - `sources.py` — where postings come from: HTTP get, HTML stripping, `condense`, one generator per source, the enrichers, and `select_candidates` over the fetched pool.
 - `llm.py` — `generate`, the one Gemini call with retries and the fallback model inside it, and the tolerant JSON parser.
 - `rank.py` — `build_prompt` from template, profile, pipeline, and candidates; `finish` from the model's answer to the brief and sheet rows.
-- `profile.py` — signup's model stage: `draft_profile` from an `Answers` row and an optional resume to the prose profile and the `Settings` values, with the docx-to-text step and the title-filter widening behind it.
+- `profile.py` — signup's model stage: `draft_profile` from an `Answers` row and an optional resume to the prose profile and the `Settings` values, with the docx-to-text step and the title filters behind it.
 - `render.py` — Markdown to inline-styled HTML, the backlog line, the sheet-link footer, the heartbeat email body.
 - `sheet.py` — the six per-user tab headers, `days_since_email` for the heartbeat rule, and the Sheets/Drive client: a service-account token, one authenticated request, the tab, row and permission operations, and `init_sheet` on top.
 - `registry.py` — the registry sheet: the `Users` and `Allowed` tab headers and `users_to_run`, which picks the active users a run serves and applies `ONLY_USERS`.
 - `find_boards.py` — operator tool: turns company names into verified ATS slugs for `sources.base.json`.
 - `data/prompt.md` — instructions to the model: scoring rubric, brief layout, JSON contract.
 - `data/profile_prompt.md` — instructions to the model that drafts a profile: what to trust, what the Answers columns hold, and the profile's sections.
-- `data/role_titles.json` — operator-maintained level words per experience band; the title filters are widened from it.
 - `data/sources.base.json` — shared board slugs per ATS, Climatebase queries, and the whole-feed sources everyone runs against.
 
 ## `jobbrief/web/` — the web app
@@ -60,7 +59,7 @@ Verify command: `python -m pytest`. Runs with no network; see `tests/README.md`.
 - `test_registry.py` — `users_to_run`: inactive rows dropped, no filter returns all active, `ONLY_USERS` restricts case-insensitively.
 - `test_sheet.py` — `init_sheet` lays the six tabs, adds missing ones, and writes every header but Profile; the editor, row and cell operations.
 - `test_web.py` — sign-in scopes, the gate (allowed, operator, unknown address), the invite email, state and verification refusals, signup end to end (submit, the Drive callback's sheet and registry writes, a lost stash, a model failure), and settings: what the page shows, what a save writes, pause, retake, delete-me.
-- `test_profile.py` — the generator prompt from an invented `Answers` row, the level-word widening of the filters and what the entry words exclude, a Word resume to text, and the PDF attachment.
+- `test_profile.py` — the generator prompt from an invented `Answers` row, the title filters as typed, a Word resume to text, and the PDF attachment.
 - `test_fetch.py` — Greenhouse fetcher against the recording, unreachable board skipped, title filters, Seen dedup.
 - `fixtures/greenhouse/gradle.json` — one Greenhouse board response, saved unmodified.
 - `fixtures/posting.txt` — one posting as `condense` receives it.

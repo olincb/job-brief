@@ -28,7 +28,8 @@ hold; these need context:
 - `work_types` and `employer_types`: ranked best first, with anything
   unwanted deleted.
 - `entry_level`: whether a role below their training but inside their field
-  is a way in — yes, maybe, or no.
+  is a way in — yes, maybe, or no. Nothing filters on it, so the realism
+  judgment is yours: say whether such titles are targets or unwanted.
 - `terms`: each term answered `fine`, `meh`, or `no`. `meh` is a penalty,
   `no` is a dealbreaker.
 - `physical`: physical conditions they refuse.

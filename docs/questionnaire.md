@@ -89,8 +89,8 @@ pipeline setting it informs, and *shape:* the answer type.
 
 10. **A role below your training but inside your field, as a way in:**
     yes, maybe, or no.
-    *feeds:* whether entry-level and adjacent titles are targets or
-    exclusions.
+    *feeds:* the profile's realism rubric, which decides whether entry-level
+    and adjacent titles are targets or dealbreakers.
     *shape:* one word.
 
 ## Hard lines
@@ -175,10 +175,9 @@ pipeline setting it informs, and *shape:* the answer type.
 - Questions 16 and 17 are high signal. Quote them, do not paraphrase them
   away.
 - Never copy contact details into the profile.
-- Question 7 becomes the title filter and question 8 the exclude filter,
-  after the operator's small mapping adds generic level words for the
-  field (assistant, associate, specialist, technician, intern, senior, and
-  so on) as appropriate to the years in question 2.
+- Question 7 becomes the title filter and question 8 the exclude filter, as
+  typed. What a level word implies reads differently in every field, so
+  seniority is judgment the profile carries, not a list the engine keeps.
 - Everything about frequency, pick count, and pause is a setting, not a
   question; defaults are daily, ten picks, active.
 

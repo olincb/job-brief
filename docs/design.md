@@ -160,10 +160,10 @@ run, not per user.
 
 Guardrails:
 
-- A user with an empty title filter is not run. Filters are generated from
-  the questionnaire's role ranking, with a small operator-maintained
-  mapping from role types to title words such as technician, specialist,
-  coordinator, assistant, analyst, intern, and are editable in settings.
+- A user with an empty title filter is not run. Filters are the phrases from
+  questions 7 and 8 as the user typed them, editable in settings. Seniority
+  is not mechanized: what a level word implies reads differently in every
+  field, so it stays a judgment the profile carries.
 - Candidates per user per run are capped around 150; hitting the cap is
   flagged as a filter that is too loose.
 

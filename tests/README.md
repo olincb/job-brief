@@ -17,8 +17,8 @@ over recorded bodies.
   and the editor, row and cell operations, against a fake request function that
   records the calls they would make); the registry selection
   (inactive rows dropped, `ONLY_USERS` scoping, case-insensitive); profile
-  drafting (the generator prompt from an invented answers row, the level-word
-  widening of the title filters, a Word resume to text); the
+  drafting (the generator prompt from an invented answers row, the title
+  filters as typed, a Word resume to text); the
   mail message builder and failure-notice bodies (headers, multipart order,
   no address), which never open an SMTP connection; and the web app's sign-in
   and gate, its signup flow, and settings, against hand-built stand-ins for
