@@ -20,8 +20,8 @@ choices below assume that.
 |---|---|---|---|---|
 | Engine | public GitHub repo | nothing | none | none |
 | Daily job | GitHub Actions, scheduled, in a private ops repo that pins the engine | service account; Gemini key; SES SMTP credentials | those three | none |
-| Web app: sign-in, signup form, settings | Fly.io, one auto-stop Machine, Flask behind waitress, server-rendered | Google OAuth client for identity; service account for Sheets and Drive | OAuth client secret, session key, service account key | transient signup stash between form submit and Drive consent; lost on restart |
-| Registry sheet | Drive, owned by the operator, service account as editor | | | `Users`: email, sheet_id, active, frequency, added. `Allowed`: email, added. |
+| Web app: sign-in, signup form, settings | Fly.io, one auto-stop Machine, Flask behind waitress, server-rendered | Google OAuth client for identity; service account for Sheets and Drive | OAuth client secret, session key, service account key, Gemini key, SES SMTP credentials | transient signup stash between form submit and Drive consent; lost on restart |
+| Registry sheet | Drive, owned by the operator, service account as editor | | | `Users`: email, sheet_id, active, frequency, added. `Allowed`: email, added, and the operator's switch for one person, read by the app at sign-in and by the run each day. |
 | Per-user sheet | the user's own Drive, service account as editor | | | Answers, Profile, Settings, Postings, Seen, Runs |
 | Email | Amazon SES, `brief@<your-domain>`, production access | | SMTP credentials | |
 
@@ -40,8 +40,11 @@ service account's JWT, because the standard library has no RSA and that is
 the kind of domain logic a dependency is for. The key reaches the engine
 through one environment variable, `SERVICE_ACCOUNT_JSON`, holding the key
 file's JSON; `cli.py` reads it, mints a short-lived token scoped to
-`spreadsheets` and `drive.file`, and passes the token to the sheet
-functions. Everything after signing — the token exchange and every Sheets
+`spreadsheets` and `drive`, and passes the token to the sheet functions.
+The wide Drive scope is for the service account alone: `drive.file` reaches
+only files the app itself opened or the user picked, so a sheet shared to
+the account is invisible to the Drive API and its `permissions` endpoints,
+and a service account's Drive holds nothing but what has been shared to it. Everything after signing — the token exchange and every Sheets
 and Drive call — is `urllib`. The web app adds Flask and
 waitress in a `web` extra, so installing the engine alone pulls neither.
 Flask because the app is forms, redirects, and a signed cookie, which is
@@ -61,12 +64,14 @@ All four scopes are classified non-sensitive, so the app is published to
 Production with no verification review and no user cap.
 
 The returned verified email is matched, case-insensitively, against the
-`Allowed` tab. The operator's address, a deployment value rather than
-anything in the engine, is always allowed. An
-unknown address sees an invite-only page and triggers one email to the
+`Allowed` tab, which is the whole rule: the operator's own row goes in it
+like anyone's, and `OPERATOR_EMAIL` says only where invite notices are
+sent. An unknown address sees an invite-only page and triggers one email to the
 operator naming the address. Nothing else is created, so an uninvited
 login costs nothing. A signed approve link in that email is a later
-addition; until then approval is adding a row to `Allowed`.
+addition; until then approval is adding a row to `Allowed`. That row is
+not only the door: the daily run reads the same tab, so deleting it stops
+someone's briefs as well as their sign-in.
 
 Why not a SPA with PKCE: a backend exists regardless for Gemini, SES, the
 registry and the service account, so PKCE would only move sheet creation
@@ -102,15 +107,16 @@ Drive until the last step:
    write the raw answers to `Answers` (free text in its own columns so the
    operator can read them across users), the profile to `Profile`, and the
    mechanical settings to `Settings`. Append a registry row with `active`
-   set to `no`, send a welcome email with the sheet link, and discard the
+   set to `yes`, send a welcome email with the sheet link, and discard the
    token and the stashed answers. The `Profile` tab is what persists and is
    editable.
 
-A new user is inactive until the operator has read the generated profile
-and set `active` to `yes`; this is the draft state, and it is the same cell
-the user's own pause toggles. The stash between steps 1 and 3 lives in the
-one web process and is lost if the Machine restarts, in which case the user
-submits the form again.
+A new user is active from signup. The profile is theirs to read and edit in
+settings, and `active` means one thing, that they want briefs, written only
+by their own pause. The operator's gate is `Allowed`, before the form, and
+there is no second one after it. The stash between steps 1 and 3 lives in
+the one web process and is lost if the Machine restarts, in which case the
+user submits the form again.
 
 Verified against Google's reference: `spreadsheets.create` and
 `permissions.create` both accept `drive.file`, and the Sheets API accepts
@@ -123,7 +129,7 @@ app just made.
 
 1. Fetch every source once into a raw pool: company boards, Climatebase,
    Hacker News, RemoteOK, Himalayas, Apple, and whatever is added later.
-2. For each user whose frequency makes today a send day: read their tabs,
+2. For each user in `Allowed` whose frequency makes today a send day: read their tabs,
    drop postings already in `Seen` or older than the lookback (stretched
    to cover the gap since their last send), apply their title filters,
    condense each posting to its requirements, one Gemini call with the
@@ -147,9 +153,13 @@ regenerates the profile from fresh answers. Recent `Runs` rows are shown.
 Frequency and pause write to the registry row, not the user's sheet, so the
 daily run decides a non-send day without opening the sheet; the rest write
 to `Settings`. Weekly users get their brief on Monday.
-Delete-me removes the registry row and the service account's editor
-access; the sheet stays with the user. The operator's removal path is the
-same two edits.
+Delete-me removes the registry row and the service account's editor access;
+the sheet stays with the user. Their `Allowed` row stays too, so they are
+still invited and signing up again makes a new sheet. To switch someone off
+instead, the operator deletes that `Allowed` row: sign-in is refused, the
+run skips them, and their `Users` row, pause state and sheet are as they
+left them until the row goes back. Permanent removal is all three edits,
+the `Allowed` row included.
 
 ## Sources
 
@@ -160,10 +170,10 @@ run, not per user.
 
 Guardrails:
 
-- A user with an empty title filter is not run. Filters are generated from
-  the questionnaire's role ranking, with a small operator-maintained
-  mapping from role types to title words such as technician, specialist,
-  coordinator, assistant, analyst, intern, and are editable in settings.
+- A user with an empty title filter is not run. Filters are the phrases from
+  questions 7 and 8 as the user typed them, editable in settings. Seniority
+  is not mechanized: what a level word implies reads differently in every
+  field, so it stays a judgment the profile carries.
 - Candidates per user per run are capped around 150; hitting the cap is
   flagged as a filter that is too loose.
 
@@ -327,9 +337,10 @@ implementation issues when the pull toward generality first showed.
 - Nothing per user is stored server-side beyond email and sheet id.
   Resumes are not stored. Tokens are not stored.
 - Profile text is sent to Google's paid API, which does not train on it.
-- Adding any sensitive or restricted scope later reopens Google's
-  verification process. Staying on `drive.file` keeps the app permanently
-  outside it.
+- Adding any sensitive or restricted scope to the OAuth client the user
+  consents to reopens Google's verification process. Keeping that client on
+  `drive.file` keeps the app permanently outside it; the service account
+  has no consent screen, so its wider Drive scope changes nothing there.
 - Every secret lives in the ops repo's Actions secrets and nowhere the
   operator has to remember. Rotation is one edit there and one deploy
   dispatch. Users hold nothing and are never affected.
@@ -357,16 +368,17 @@ and the heartbeat rule. Issues carry the detail.
 
 Verified: `drive.file` covers create, populate and share; it is
 non-sensitive on both the Drive and Sheets scope pages; a service account
-with `spreadsheets` and `drive.file` adds tabs and writes headers to a
-sheet in a personal Drive shared to it as editor, and reads the registry
-the same way; Gemini accepts PDFs inline; SES sandbox behavior and
+adds tabs and writes headers to a sheet in a personal Drive shared to it as
+editor, and reads the registry the same way; Gemini accepts PDFs inline; SES sandbox behavior and
 production-access path, granted the same day it was requested with no
 justification asked beyond a website URL, so a `send` from the engine to
 any address works before the first friend signs up; Fly scheduled
 Machines and Actions cron characteristics.
 
-Nothing is open: every credential-dependent assumption above has been
-tested with real credentials.
+Open: the Drive `permissions` endpoints on a sheet shared to the service
+account, which `drive.file` returned 404 for and the wide Drive scope should
+answer. The operator's next delete-me run confirms it. Everything else above
+has been tested with real credentials.
 
 ## Deliberately unspecified
 

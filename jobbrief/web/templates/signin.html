@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Job brief</h1>
+<p>A periodic email of job postings ranked against a profile you write, with a Google
+Sheet in your Drive as memory and application tracker.</p>
+<p>Signing in asks only for your name and email address.</p>
+<p><a href="{{ url_for('login') }}">Sign in with Google</a></p>
+{% endblock %}

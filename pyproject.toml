@@ -12,7 +12,8 @@ requires-python = ">=3.11"
 dependencies = ["google-auth"]  # signs the service account's RS256 JWT; see docs/design.md
 
 [project.optional-dependencies]
-dev = ["pytest"]
+web = ["flask", "waitress"]  # the web app only; the engine stays standard library plus google-auth
+dev = ["pytest", "jobbrief[web]"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,6 +1,7 @@
 """The one way the engine talks to the model: generate(), with retries and the fallback
 model inside it, and a tolerant parser for the JSON it returns."""
 
+import base64
 import http.client
 import json
 import sys
@@ -10,6 +11,10 @@ import urllib.request
 
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+
+# The models every caller tries, in order, and the total attempts split between them.
+MODELS = ["gemini-3.8-flash", "gemini-3.5-flash"]
+RETRIES = 8
 
 
 RETRYABLE = (429, 500, 503)
@@ -45,17 +50,21 @@ def call_gemini(model, body, api_key, attempts):
     return None
 
 
-def generate(prompt, models, api_key, retries, json_output=False):
+def generate(prompt, models, api_key, retries, json_output=False, pdf=None):
     """The one way the engine talks to the model. Tries each model in turn with the retry
     budget split evenly, so callers need no retry logic of their own: ranking on the daily
     run and drafting a profile at signup both come through here. 503 "model is overloaded"
     clusters on whichever model launched most recently and hits paid tiers too, so an
-    older Flash as the fallback is the reliable escape hatch. Returns the model's text,
-    the model that served it, and the usage metadata."""
+    older Flash as the fallback is the reliable escape hatch. `pdf`, when given, goes inline
+    ahead of the prompt, which is how a resume reaches the model at signup. Returns the
+    model's text, the model that served it, and the usage metadata."""
     config = {"temperature": 0.2}
     if json_output:
         config["responseMimeType"] = "application/json"
-    body = json.dumps({"contents": [{"role": "user", "parts": [{"text": prompt}]}], "generationConfig": config}).encode()
+    parts = [{"text": prompt}]
+    if pdf:
+        parts.insert(0, {"inlineData": {"mimeType": "application/pdf", "data": base64.b64encode(pdf).decode()}})
+    body = json.dumps({"contents": [{"role": "user", "parts": parts}], "generationConfig": config}).encode()
     per_model = max(1, retries // len(models))
     for model in models:
         data = call_gemini(model, body, api_key, per_model)

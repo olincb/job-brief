@@ -74,14 +74,17 @@ def days_since_email(runs_rows, today):
 
 def service_account_token(key_json):
     """Mint a short-lived bearer token from a service-account key. google-auth signs the
-    RS256 JWT because the standard library has no RSA; the exchange is a plain POST."""
+    RS256 JWT because the standard library has no RSA; the exchange is a plain POST. The
+    Drive scope is the wide one because `drive.file` reaches only files opened or picked by
+    the app itself, which leaves a sheet shared to this account invisible to the Drive API;
+    a service account's Drive holds nothing but what has been shared to it."""
     from google.auth import crypt, jwt  # only the token mint needs it; other stages run without a Google credential
 
     info = json.loads(key_json)
     now = int(time.time())
     assertion = jwt.encode(crypt.RSASigner.from_service_account_info(info), {
         "iss": info["client_email"],
-        "scope": "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file",
+        "scope": "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive",
         "aud": "https://oauth2.googleapis.com/token",
         "iat": now,
         "exp": now + 3600,
@@ -119,10 +122,27 @@ def append_rows(token, spreadsheet_id, tab, rows):
     api("POST", url, token, {"values": rows})
 
 
+def read_cell(token, spreadsheet_id, cell_range):
+    """One cell's text, or "" when it is empty. Profile's A1 is a tab with no header, so it
+    is read this way rather than through read_tab."""
+    values = api("GET", f"{SHEETS}/{spreadsheet_id}/values/{urllib.parse.quote(cell_range)}", token).get("values", [])
+    return values[0][0] if values and values[0] else ""
+
+
 def write_range(token, spreadsheet_id, cell_range, rows):
     """Overwrite a range with rows, anchored at cell_range (e.g. "Postings!A1")."""
     url = f"{SHEETS}/{spreadsheet_id}/values/{urllib.parse.quote(cell_range)}?valueInputOption=RAW"
     api("PUT", url, token, {"values": rows})
+
+
+def delete_row(token, spreadsheet_id, tab, row_number):
+    """Delete one row and close the gap behind it. `row_number` counts from 1 as the grid
+    shows it, so the first row under a header is 2. Deleting a dimension needs the tab's
+    numeric id rather than its title, hence the lookup."""
+    meta = api("GET", f"{SHEETS}/{spreadsheet_id}?fields=sheets.properties(sheetId,title)", token)
+    tab_id = next(s["properties"]["sheetId"] for s in meta["sheets"] if s["properties"]["title"] == tab)
+    api("POST", f"{SHEETS}/{spreadsheet_id}:batchUpdate", token, {"requests": [{"deleteDimension": {
+        "range": {"sheetId": tab_id, "dimension": "ROWS", "startIndex": row_number - 1, "endIndex": row_number}}}]})
 
 
 def create_spreadsheet(token, title, tabs):
@@ -177,14 +197,3 @@ def init_sheet(token, sheet_id, title):
         write_range(token, sheet_id, f"{tab}!A1", [header])
         print(f"wrote header row for {tab}")
     return sheet_id
-
-
-def share_sheet(token, sheet_id, email):
-    """Give one Google account edit access, once. The sheet is owned by the token holder,
-    so the person whose brief it is needs this to set status and notes. Requires the
-    drive.file scope, which covers files this token created."""
-    perm = _find_permission(token, sheet_id, email)
-    if perm and perm.get("role") in ("writer", "owner"):
-        return
-    add_editor(token, sheet_id, email, True)
-    print(f"shared {sheet_id} as editor")

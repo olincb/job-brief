@@ -14,11 +14,18 @@ over recorded bodies.
   dedup against the Seen tab); ranking (prompt assembly, the model call's
   fallback budget against a fake `call_gemini`, picks into rows); the
   Sheets/Drive client (init_sheet lays the six tabs and never writes Profile,
-  and share_sheet, against a fake request function that records the calls they
-  would make); the registry selection
-  (inactive rows dropped, `ONLY_USERS` scoping, case-insensitive); and the
+  and the editor, row and cell operations, against a fake request function that
+  records the calls they would make); the registry selection
+  (inactive rows dropped, a user off the `Allowed` tab dropped with them,
+  `ONLY_USERS` scoping, case-insensitive); profile
+  drafting (the generator prompt from an invented answers row, the title
+  filters as typed, a Word resume to text); the
   mail message builder and failure-notice bodies (headers, multipart order,
-  no address), which never open an SMTP connection.
+  no address), which never open an SMTP connection; and the web app's sign-in,
+  gate and sign-out, its signup flow, and settings, against hand-built stand-ins for
+  Google's token and `userinfo` responses served through a fake `oauth.request`,
+  with the sheet writes recorded through a fake `sheet.api` and the model stage
+  faked.
 - `fixtures/<source>/<slug>.json`: a board's response saved unmodified.
 - `fixtures/posting.txt`: one posting as `condense` receives it, after HTML is
   stripped. Chosen because it states years of experience, remote policy, and a

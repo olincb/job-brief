@@ -4,8 +4,8 @@ from jobbrief.sheet import (ANSWERS_HEADER, POSTINGS_HEADER, RUNS_HEADER, SEEN_H
 
 
 def fake_api(monkeypatch, sheet_id, existing_tabs, permissions=()):
-    """Stand in for the one request function on a sheet with the given tabs and shares.
-    Records every call so a test can assert what init_sheet or share_sheet would change."""
+    """Stand in for the one request function on a sheet with the given tabs and permissions.
+    Records every call so a test can assert what init_sheet would change."""
     calls = []
 
     def api(method, url, token, body=None):
@@ -15,7 +15,8 @@ def fake_api(monkeypatch, sheet_id, existing_tabs, permissions=()):
         if method == "GET" and "/permissions" in url:
             return {"permissions": list(permissions)}
         if method == "GET" and "fields=sheets" in url:
-            return {"sheets": [{"properties": {"title": t}} for t in existing_tabs]}
+            return {"sheets": [{"properties": {"sheetId": index, "title": title}}
+                               for index, title in enumerate(existing_tabs)]}
         return {}
 
     monkeypatch.setattr(sheet, "api", api)
@@ -63,16 +64,31 @@ def test_read_tab_keys_rows_by_header_and_pads_short_rows(monkeypatch):
     ]
 
 
-def test_share_sheet_grants_edit_access(monkeypatch):
-    calls = fake_api(monkeypatch, "unused", existing_tabs=[], permissions=[])
-    sheet.share_sheet("token", "sheet-id", "someone@example.com")
-    grant_url, grant = next((url, body) for method, url, body in calls if method == "POST")
-    assert grant == {"type": "user", "role": "writer", "emailAddress": "someone@example.com"}
-    assert "sendNotificationEmail=true" in grant_url
+def test_add_editor_grants_edit_access_and_can_skip_the_notification(monkeypatch):
+    calls = fake_api(monkeypatch, "unused", existing_tabs=[])
+    sheet.add_editor("token", "sheet-id", "bot@example.iam.gserviceaccount.com", notify=False)
+    url, body = next((url, body) for method, url, body in calls if method == "POST")
+    assert "sendNotificationEmail=false" in url
+    assert body == {"type": "user", "role": "writer", "emailAddress": "bot@example.iam.gserviceaccount.com"}
 
 
-def test_share_sheet_skips_an_account_that_is_already_an_editor(monkeypatch):
-    already = [{"id": "p1", "role": "writer", "emailAddress": "someone@example.com"}]
-    calls = fake_api(monkeypatch, "unused", existing_tabs=[], permissions=already)
-    sheet.share_sheet("token", "sheet-id", "someone@example.com")
-    assert not any(method == "POST" for method, _, _ in calls)
+def test_remove_editor_drops_the_account_whatever_case_drive_reports_it_in(monkeypatch):
+    editor = [{"id": "p1", "role": "writer", "emailAddress": "Bot@Example.iam.gserviceaccount.com"}]
+    calls = fake_api(monkeypatch, "unused", existing_tabs=[], permissions=editor)
+    sheet.remove_editor("token", "sheet-id", "bot@example.iam.gserviceaccount.com")
+    assert [url for method, url, _ in calls if method == "DELETE"] == [f"{sheet.DRIVE}/sheet-id/permissions/p1"]
+
+
+def test_delete_row_finds_the_tab_by_name_and_removes_that_one_row(monkeypatch):
+    calls = fake_api(monkeypatch, "unused", existing_tabs=["Allowed", "Users"])
+    sheet.delete_row("token", "registry-id", "Users", 3)
+    body = next(body for _, url, body in calls if "batchUpdate" in url)
+    assert body["requests"][0]["deleteDimension"]["range"] == {
+        "sheetId": 1, "dimension": "ROWS", "startIndex": 2, "endIndex": 3}
+
+
+def test_read_cell_returns_the_text_and_an_empty_cell_as_an_empty_string(monkeypatch):
+    monkeypatch.setattr(sheet, "api", lambda *args, **kwargs: {"values": [["the profile prose"]]})
+    assert sheet.read_cell("token", "sheet-id", "Profile!A1") == "the profile prose"
+    monkeypatch.setattr(sheet, "api", lambda *args, **kwargs: {})
+    assert sheet.read_cell("token", "sheet-id", "Profile!A1") == ""

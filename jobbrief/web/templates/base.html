@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job brief</title>
+<style>
+  body { font: 16px/1.6 system-ui, sans-serif; margin: 4rem auto; max-width: 34rem; padding: 0 1.5rem; }
+  h1 { font-size: 1.5rem; }
+  h2 { font-size: 1.1rem; margin-top: 2.5rem; }
+  label { display: block; font-weight: 600; margin-top: 1.5rem; }
+  .hint, legend { display: block; font-weight: 400; color: #555; }
+  .choice { display: block; font-weight: 400; margin-top: 0.2rem; }
+  input[type=text], textarea { width: 100%; font: inherit; margin-top: 0.3rem; }
+  fieldset { border: 0; padding: 0; margin: 1.5rem 0 0; }
+  table { border-collapse: collapse; }
+  th, td { padding: 0.2rem 0.5rem 0.2rem 0; font-weight: 400; text-align: left; }
+  .notice { background: #fff5d6; padding: 0.75rem 1rem; }
+  .scroll { overflow-x: auto; }
+  .signout { text-align: right; }
+  button { font: inherit; padding: 0.6rem 1.2rem; }
+</style>
+{% if session.email %}
+<form method="post" action="{{ url_for('signout') }}" class="signout">
+<button type="submit">Sign out</button>
+</form>
+{% endif %}
+{% block content %}{% endblock %}
+</html>
