@@ -74,14 +74,17 @@ def days_since_email(runs_rows, today):
 
 def service_account_token(key_json):
     """Mint a short-lived bearer token from a service-account key. google-auth signs the
-    RS256 JWT because the standard library has no RSA; the exchange is a plain POST."""
+    RS256 JWT because the standard library has no RSA; the exchange is a plain POST. The
+    Drive scope is the wide one because `drive.file` reaches only files opened or picked by
+    the app itself, which leaves a sheet shared to this account invisible to the Drive API;
+    a service account's Drive holds nothing but what has been shared to it."""
     from google.auth import crypt, jwt  # only the token mint needs it; other stages run without a Google credential
 
     info = json.loads(key_json)
     now = int(time.time())
     assertion = jwt.encode(crypt.RSASigner.from_service_account_info(info), {
         "iss": info["client_email"],
-        "scope": "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file",
+        "scope": "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive",
         "aud": "https://oauth2.googleapis.com/token",
         "iat": now,
         "exp": now + 3600,

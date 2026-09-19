@@ -40,8 +40,11 @@ service account's JWT, because the standard library has no RSA and that is
 the kind of domain logic a dependency is for. The key reaches the engine
 through one environment variable, `SERVICE_ACCOUNT_JSON`, holding the key
 file's JSON; `cli.py` reads it, mints a short-lived token scoped to
-`spreadsheets` and `drive.file`, and passes the token to the sheet
-functions. Everything after signing — the token exchange and every Sheets
+`spreadsheets` and `drive`, and passes the token to the sheet functions.
+The wide Drive scope is for the service account alone: `drive.file` reaches
+only files the app itself opened or the user picked, so a sheet shared to
+the account is invisible to the Drive API and its `permissions` endpoints,
+and a service account's Drive holds nothing but what has been shared to it. Everything after signing — the token exchange and every Sheets
 and Drive call — is `urllib`. The web app adds Flask and
 waitress in a `web` extra, so installing the engine alone pulls neither.
 Flask because the app is forms, redirects, and a signed cookie, which is
@@ -333,9 +336,10 @@ implementation issues when the pull toward generality first showed.
 - Nothing per user is stored server-side beyond email and sheet id.
   Resumes are not stored. Tokens are not stored.
 - Profile text is sent to Google's paid API, which does not train on it.
-- Adding any sensitive or restricted scope later reopens Google's
-  verification process. Staying on `drive.file` keeps the app permanently
-  outside it.
+- Adding any sensitive or restricted scope to the OAuth client the user
+  consents to reopens Google's verification process. Keeping that client on
+  `drive.file` keeps the app permanently outside it; the service account
+  has no consent screen, so its wider Drive scope changes nothing there.
 - Every secret lives in the ops repo's Actions secrets and nowhere the
   operator has to remember. Rotation is one edit there and one deploy
   dispatch. Users hold nothing and are never affected.
@@ -363,16 +367,17 @@ and the heartbeat rule. Issues carry the detail.
 
 Verified: `drive.file` covers create, populate and share; it is
 non-sensitive on both the Drive and Sheets scope pages; a service account
-with `spreadsheets` and `drive.file` adds tabs and writes headers to a
-sheet in a personal Drive shared to it as editor, and reads the registry
-the same way; Gemini accepts PDFs inline; SES sandbox behavior and
+adds tabs and writes headers to a sheet in a personal Drive shared to it as
+editor, and reads the registry the same way; Gemini accepts PDFs inline; SES sandbox behavior and
 production-access path, granted the same day it was requested with no
 justification asked beyond a website URL, so a `send` from the engine to
 any address works before the first friend signs up; Fly scheduled
 Machines and Actions cron characteristics.
 
-Nothing is open: every credential-dependent assumption above has been
-tested with real credentials.
+Open: the Drive `permissions` endpoints on a sheet shared to the service
+account, which `drive.file` returned 404 for and the wide Drive scope should
+answer. The operator's next delete-me run confirms it. Everything else above
+has been tested with real credentials.
 
 ## Deliberately unspecified
 
