@@ -174,6 +174,7 @@ def test_an_unknown_address_gets_the_invite_page_and_one_email_naming_it(client,
     assert len(sent) == 1
     to, _, text = sent[0]
     assert to == "operator@example.com" and "stranger@example.com" in text
+    assert ENV["REGISTRY_SHEET_ID"] in text  # the row goes in from the email
     with client.session_transaction() as session:
         assert "email" not in session
 

@@ -79,9 +79,10 @@ def user_row(token, email):
 
 def notify_operator(email):
     """Tell the operator someone uninvited stopped by. Approval is adding a row to `Allowed`."""
-    text = f"{email} signed in and is not on the Allowed tab. Add a row there to let them in."
+    url = SHEET_URL.format(os.environ["REGISTRY_SHEET_ID"])
+    said = f"{email} signed in and is not on the Allowed tab. To let them in, add a row:"
     mail.send(os.environ["OPERATOR_EMAIL"], "Job brief: sign-in from an uninvited address",
-              f"<p>{escape(text)}</p>", text)
+              f'<p>{escape(said)} <a href="{url}">{url}</a></p>', f"{said}\n\n{url}")
 
 
 def stash(key, entry):
