@@ -153,12 +153,13 @@ regenerates the profile from fresh answers. Recent `Runs` rows are shown.
 Frequency and pause write to the registry row, not the user's sheet, so the
 daily run decides a non-send day without opening the sheet; the rest write
 to `Settings`. Weekly users get their brief on Monday.
-Delete-me removes the registry row and the service account's editor
-access; the sheet stays with the user, and those two edits are also the
-operator's permanent removal path. To switch someone off without removing
-them, the operator deletes their `Allowed` row: sign-in is refused, the
+Delete-me removes the registry row and the service account's editor access;
+the sheet stays with the user. Their `Allowed` row stays too, so they are
+still invited and signing up again makes a new sheet. To switch someone off
+instead, the operator deletes that `Allowed` row: sign-in is refused, the
 run skips them, and their `Users` row, pause state and sheet are as they
-left them until the row goes back.
+left them until the row goes back. Permanent removal is all three edits,
+the `Allowed` row included.
 
 ## Sources
 

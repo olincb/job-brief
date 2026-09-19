@@ -38,8 +38,9 @@ python -m jobbrief.web
 ```
 
 Set up a Google OAuth client first: a **web application** client in the same
-Cloud project as the service account, with `<your base URL>/auth/callback` as an
-authorized redirect URI. On the consent screen, list the identity scopes
+Cloud project as the service account, with `<your base URL>/auth/callback` and
+`<your base URL>/auth/drive/callback` as authorized redirect URIs: sign-in uses
+the first and signup's Drive step the second. On the consent screen, list the identity scopes
 (`openid`, `email`, `profile`) and `drive.file`, which signup asks for in a
 second consent step, and publish the screen to Production. All four are
 non-sensitive, so there is no verification review.
@@ -53,13 +54,16 @@ and where they are kept is the operator's runbook, in the ops repo.
 
 ## Removing a user
 
-A user removes themselves from the settings page. The operator switches someone
-off by deleting their row from the registry's `Allowed` tab: sign-in is refused
-and the daily run skips them, and adding the row back turns them on again with
-their settings and sheet untouched. Removing someone for good is the same two
-edits the settings page makes, by hand and with no code: delete their row from
-the `Users` tab, and remove the service account from the sharing list on their
-sheet. The sheet stays with the user either way.
+The operator switches someone off by deleting their row from the registry's
+`Allowed` tab: sign-in is refused, the daily run skips them, and adding the row
+back turns them on again with their settings and sheet untouched.
+
+A user removes themselves from the settings page, which deletes their `Users`
+row and takes the service account off their sheet. Their `Allowed` row stays:
+they are still invited, and signing up again makes a new sheet. Removing someone
+for good is all three edits, by hand and with no code: the `Allowed` row, the
+`Users` row, and the service account's share on their sheet. The sheet stays
+with the user whichever way it goes.
 
 ## Releasing
 
