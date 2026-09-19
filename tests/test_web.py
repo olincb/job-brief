@@ -167,10 +167,6 @@ def test_an_address_on_the_allowed_tab_signs_in_whatever_its_case(client, monkey
     assert sent == []
 
 
-def test_the_operator_is_allowed_without_a_row(client, monkeypatch):
-    assert sign_in(client, monkeypatch, "operator@example.com", allowed=[]).headers["Location"] == "/"
-
-
 def test_an_unknown_address_gets_the_invite_page_and_one_email_naming_it(client, monkeypatch, sent):
     response = sign_in(client, monkeypatch, "stranger@example.com")
     assert response.headers["Location"] == "/invite"

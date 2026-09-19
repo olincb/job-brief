@@ -64,9 +64,9 @@ All four scopes are classified non-sensitive, so the app is published to
 Production with no verification review and no user cap.
 
 The returned verified email is matched, case-insensitively, against the
-`Allowed` tab. The operator's address, a deployment value rather than
-anything in the engine, is always allowed. An
-unknown address sees an invite-only page and triggers one email to the
+`Allowed` tab, which is the whole rule: the operator's own row goes in it
+like anyone's, and `OPERATOR_EMAIL` says only where invite notices are
+sent. An unknown address sees an invite-only page and triggers one email to the
 operator naming the address. Nothing else is created, so an uninvited
 login costs nothing. A signed approve link in that email is a later
 addition; until then approval is adding a row to `Allowed`. That row is

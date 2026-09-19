@@ -61,8 +61,9 @@ def allowed_emails():
 
 
 def is_allowed(email):
-    """`email` must already be lowercased; the operator is a deployment value and always in."""
-    return email == os.environ["OPERATOR_EMAIL"].strip().lower() or email in allowed_emails()
+    """The `Allowed` tab is the whole rule, the operator's own row included. `email` must
+    already be lowercased."""
+    return email in allowed_emails()
 
 
 def user_row(token, email):

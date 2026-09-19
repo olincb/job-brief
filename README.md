@@ -47,8 +47,9 @@ non-sensitive, so there is no verification review.
 
 The app reads `GCP_OAUTH_CLIENT_ID`, `GCP_OAUTH_CLIENT_SECRET`, `SESSION_KEY` (any
 long random string, which signs the session cookie), `SERVICE_ACCOUNT_JSON`,
-`REGISTRY_SHEET_ID`, `OPERATOR_EMAIL`, `GEMINI_API_KEY` (signup drafts the
-profile), and the SES variables `BRIEF_FROM`,
+`REGISTRY_SHEET_ID`, `OPERATOR_EMAIL` (where invite notices go; the operator
+signs in on their own `Allowed` row like anyone), `GEMINI_API_KEY` (signup
+drafts the profile), and the SES variables `BRIEF_FROM`,
 `SES_SMTP_HOST`, `SES_SMTP_USER`, `SES_SMTP_PASS`. Where those values come from
 and where they are kept is the operator's runbook, in the ops repo.
 
