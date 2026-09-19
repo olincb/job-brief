@@ -117,20 +117,21 @@ def create_user_sheet(token, entry):
 
 
 def register(token, email, sheet_id):
-    """Append the `Users` row. `active` is `no`: a new user is a draft until the operator has
-    read the generated profile."""
-    row = {"email": email, "sheet_id": sheet_id, "active": "no", "frequency": "daily", "added": today()}
+    """Append the `Users` row. `active` says the user wants briefs, which they do at signup;
+    the pause checkbox is the only thing that ever writes it again."""
+    row = {"email": email, "sheet_id": sheet_id, "active": "yes", "frequency": "daily", "added": today()}
     sheet.append_rows(token, os.environ["REGISTRY_SHEET_ID"], "Users",
                       [[row[column] for column in registry.USERS_HEADER]])
 
 
 def send_welcome(email, sheet_id):
     url = SHEET_URL.format(sheet_id)
-    review = ("The operator reads your generated profile before the first brief goes out. "
-              "The Profile tab is yours to edit; it is what the ranking reads.")
+    settings_url = url_for("settings", _external=True)
+    first = (f"Your first brief goes out on the next send day, and the profile drafted from your "
+             f"answers is yours to read and edit in settings: {settings_url}")
     mail.send(email, "Your job brief is set up",
-              f'<p>Your tracking sheet: <a href="{url}">{url}</a></p><p>{review}</p>',
-              f"Your tracking sheet:\n\n{url}\n\n{review}")
+              f'<p>Your tracking sheet: <a href="{url}">{url}</a></p><p>{first}</p>',
+              f"Your tracking sheet:\n\n{url}\n\n{first}")
 
 
 def signup_page(answers=None, message="", retake=False):

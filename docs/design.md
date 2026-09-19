@@ -102,15 +102,16 @@ Drive until the last step:
    write the raw answers to `Answers` (free text in its own columns so the
    operator can read them across users), the profile to `Profile`, and the
    mechanical settings to `Settings`. Append a registry row with `active`
-   set to `no`, send a welcome email with the sheet link, and discard the
+   set to `yes`, send a welcome email with the sheet link, and discard the
    token and the stashed answers. The `Profile` tab is what persists and is
    editable.
 
-A new user is inactive until the operator has read the generated profile
-and set `active` to `yes`; this is the draft state, and it is the same cell
-the user's own pause toggles. The stash between steps 1 and 3 lives in the
-one web process and is lost if the Machine restarts, in which case the user
-submits the form again.
+A new user is active from signup. The profile is theirs to read and edit in
+settings, and `active` means one thing, that they want briefs, written only
+by their own pause. The operator's gate is `Allowed`, before the form, and
+there is no second one after it. The stash between steps 1 and 3 lives in
+the one web process and is lost if the Machine restarts, in which case the
+user submits the form again.
 
 Verified against Google's reference: `spreadsheets.create` and
 `permissions.create` both accept `drive.file`, and the Sheets API accepts

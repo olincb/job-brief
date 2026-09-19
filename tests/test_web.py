@@ -249,11 +249,11 @@ def test_the_drive_callback_creates_the_sheet_registers_the_user_and_welcomes_th
     roster = next((token, body) for method, url, token, body in calls if "Users:append" in url)
     assert roster[0] == "sa-token"
     assert dict(zip(registry.USERS_HEADER, roster[1]["values"][0])) == {
-        "email": USER, "sheet_id": "new-sheet-id", "active": "no", "frequency": "daily",
+        "email": USER, "sheet_id": "new-sheet-id", "active": "yes", "frequency": "daily",
         "added": datetime.now().strftime("%Y-%m-%d")}
 
     to, subject, text = sent[0]
-    assert to == USER and "new-sheet-id" in text and "operator" in text.lower()
+    assert to == USER and "new-sheet-id" in text and "/settings" in text
 
 
 def test_a_lost_stash_sends_the_user_back_to_the_form_with_nothing_created(client, monkeypatch, sent):
