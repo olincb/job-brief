@@ -61,4 +61,11 @@ edits the settings page makes, by hand and with no code: delete their row from
 the `Users` tab, and remove the service account from the sharing list on their
 sheet. The sheet stays with the user either way.
 
+## Releasing
+
+Production runs a tag, never `main`. To release: bump `version` in
+`pyproject.toml`, commit, then `gh release create vX.Y.Z --generate-notes`.
+Deploying it is the ops repo's job: dispatch `deploy.yml` with the tag for the
+web app, and change the pin in the scheduled workflow for the daily job.
+
 Status: design complete, implementation starting. Work is tracked in Issues.
