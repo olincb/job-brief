@@ -22,8 +22,8 @@ from jobbrief.web import form, oauth
 
 SCOPES = ["openid", "email", "profile"]  # drive.file is asked for at signup, in its own consent step
 DRIVE_SCOPES = ["https://www.googleapis.com/auth/drive.file"]
-OPEN_ENDPOINTS = {"signin", "login", "callback", "invite", "signout", "static"}  # signout is open so a
-# session that is signed in but not on the Allowed tab can still end itself
+# signout is open so that a session whose `Allowed` row has since been deleted can still end itself.
+OPEN_ENDPOINTS = {"signin", "login", "callback", "invite", "signout", "static"}
 ALLOWED_TTL = 60  # seconds; a woken Machine pays one Sheets call for a burst of requests, not one each
 STASH_TTL = 3600  # seconds; an abandoned signup should not sit in memory for the life of the process
 SHEET_TITLE = "Job Brief"
@@ -153,8 +153,15 @@ def create_app():
 
     @app.before_request
     def require_gated_session():
-        if request.endpoint not in OPEN_ENDPOINTS and not session.get("email"):
+        """The gate is checked on every request, not just at sign-in, so deleting someone's
+        `Allowed` row ends the session they already have rather than waiting for the cookie."""
+        if request.endpoint in OPEN_ENDPOINTS:
+            return None
+        email = session.get("email")
+        if not email:
             return redirect(url_for("signin"))
+        if not is_allowed(email):
+            return redirect(url_for("invite"))
 
     @app.get("/")
     def home():

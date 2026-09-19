@@ -3,7 +3,6 @@
 <h1>Your brief</h1>
 <p>Your tracking sheet: <a href="{{ sheet_url }}">{{ sheet_url }}</a>. Everything below is
 editable there too; this page is the short way in.</p>
-{% if message %}<p class="notice">{{ message }}</p>{% endif %}
 
 <form method="post">
 
@@ -30,7 +29,7 @@ any of these is shown to the model. An empty list means no brief.</span>
 </fieldset>
 
 <label for="max_picks">Picks per brief</label>
-<input type="text" id="max_picks" name="max_picks" value="{{ settings.max_picks }}">
+<input type="number" id="max_picks" name="max_picks" min="1" value="{{ settings.max_picks }}">
 
 <fieldset>
 <legend>Pause</legend>

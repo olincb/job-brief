@@ -401,3 +401,11 @@ def test_signing_out_ends_the_session(client, monkeypatch):
     sign_in(client, monkeypatch)
     assert client.post("/signout").headers["Location"] == "/signin"
     assert client.get("/").headers["Location"] == "/signin"
+
+
+def test_a_session_whose_allowed_row_is_gone_is_sent_to_the_invite_page(client, monkeypatch):
+    registered(client, monkeypatch)
+    fake_tabs(monkeypatch, allowed=[], users=REGISTERED, Settings=STORED_SETTINGS)
+    monkeypatch.setattr(web, "_allowed", (0.0, frozenset()))
+    assert client.get("/settings").headers["Location"] == "/invite"
+    assert client.post("/signout").headers["Location"] == "/signin"
