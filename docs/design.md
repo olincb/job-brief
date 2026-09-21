@@ -139,7 +139,7 @@ app just made.
    `Postings` and `Seen`, and append a `Runs` row with candidates, picks,
    model, tokens, and picks per source.
 3. Quiet day: heartbeat rule, counted from the last email of any kind, so a
-   run of quiet days says hello every four of them rather than once.
+   run of quiet days sends a heartbeat every four of them.
 4. Non-send day: a `skipped` Runs row and nothing else. Picks are never
    appended to a sheet without an email, so the sheet and the inbox always
    agree.

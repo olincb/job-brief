@@ -116,7 +116,7 @@ def run(env, today):
             failed += 1
             print(f"{sheet_id}: {type(exc).__name__}", file=sys.stderr)
             notice = mail.operator_failure_notice(sheet_id, str(exc))
-            try:  # a sheet or a mailbox that will not take the news is still only this user's failure
+            try:  # a failing sheet or mailbox is still only this user's failure
                 append_rows(token, sheet_id, "Runs", [runs_row(today, "failed", "no", note=str(exc))])
                 mail.send(operator, "Job brief: a run failed", f"<pre>{notice}</pre>", notice)
                 mail.send(user["email"], "Job brief: today's run did not finish",
