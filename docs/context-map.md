@@ -19,7 +19,7 @@ is added. The design and its reasons are in `design.md`; this is only a map.
 - `__main__.py` — hands off to `cli.main`.
 - `cli.py` — `python -m jobbrief`: argparse, the `run` subcommand that calls into `run.py`, and the stage subcommands that debug one user from files under `--out`. The only module that touches the filesystem, and with `mail.py` one of the two that read the environment.
 - `mail.py` — `send(to, subject, html, text)`: one email through SES over SMTP (multipart/alternative, STARTTLS on 587), plus the two failure-notice bodies. Reads the SES credentials and sender from the environment.
-- `sources.py` — where postings come from: HTTP get, HTML stripping, `condense`, one generator per source, the enrichers, and `select_candidates` over the fetched pool.
+- `sources.py` — where postings come from: HTTP get, HTML stripping, `condense`, one generator per source, the enrichers, and `select_candidates` over the fetched pool, newest first under the candidate cap.
 - `llm.py` — `generate`, the one Gemini call with retries and the fallback model inside it, and the tolerant JSON parser.
 - `rank.py` — `build_prompt` from template, profile, pipeline, and candidates; `finish` from the model's answer to the brief, the sheet rows, and picks per source.
 - `profile.py` — signup's model stage: `draft_profile` from an `Answers` row and an optional resume to the prose profile and the `Settings` values, with the docx-to-text step and the title filters behind it.
@@ -62,9 +62,9 @@ Verify command: `python -m pytest`. Runs with no network; see `tests/README.md`.
 - `test_sheet.py` — `init_sheet` lays the six tabs, adds missing ones, and writes every header but Profile; the editor, row and cell operations.
 - `test_web.py` — sign-in scopes, the gate (an allowed address, an unknown one, an `Allowed` row deleted under a live session), the invite email, state and verification refusals, sign-out, signup end to end (submit, the Drive callback's sheet and registry writes, a lost stash, a model failure), and settings: what the page shows, what a save writes, pause, retake, delete-me.
 - `test_profile.py` — the generator prompt from an invented `Answers` row, the title filters as typed, a Word resume to text, and the PDF attachment.
-- `test_rank.py` — prompt assembly, the retry budget across both models, and the model's picks into sheet rows.
+- `test_rank.py` — prompt assembly, the retry budget across both models, the model's picks into sheet rows, and picks per source ordered by count then name.
 - `test_mail.py` — the message builder's headers and multipart order, and the failure notices, without opening an SMTP connection.
-- `test_fetch.py` — Greenhouse fetcher against the recording, unreachable board skipped, title filters, Seen dedup.
+- `test_fetch.py` — Greenhouse fetcher against the recording, unreachable board skipped, title filters, Seen dedup, and the cap keeping the newest and flagging itself.
 - `fixtures/greenhouse/gradle.json` — one Greenhouse board response, saved unmodified.
 - `fixtures/posting.txt` — one posting as `condense` receives it.
 - `fixtures/brief.md` — a hand-written sample brief with invented companies.

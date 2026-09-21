@@ -138,7 +138,8 @@ app just made.
    primary-then-fallback retry budget, render HTML, send via SES, append
    `Postings` and `Seen`, and append a `Runs` row with candidates, picks,
    model, tokens, and picks per source.
-3. Quiet day: heartbeat rule, counted from the last send day.
+3. Quiet day: heartbeat rule, counted from the last email of any kind, so a
+   run of quiet days says hello every four of them rather than once.
 4. Non-send day: a `skipped` Runs row and nothing else. Picks are never
    appended to a sheet without an email, so the sheet and the inbox always
    agree.
@@ -268,10 +269,11 @@ Engine repo, public:
 - This design doc, minus anything deployment-specific.
 - How each component behaves: the daily run, the flows, the sources model,
   the sheet layout, Runs tab semantics, the heartbeat rule.
-- How to add a fetcher, change the prompt, run locally against one user.
-- Generic setup: create a service account with the Sheets and Drive APIs
-  enabled, create a web-application OAuth client, verify a domain in SES.
-  Steps, never the operator's values.
+- The README's Setup, Running, Debugging one stage, Adding a fetcher and
+  Changing the prompt sections: generic setup (a service account with the
+  Sheets and Drive APIs enabled, a web-application OAuth client, a domain
+  verified in SES), the `run` command and its environment, and what a
+  stage subcommand under `out/` is for. Steps, never the operator's values.
 
 Ops repo, private, in this order because the reader arrives from a failure
 email:
