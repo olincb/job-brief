@@ -1,5 +1,5 @@
-"""The daily run: the date rules over a user's registry row and Runs tab, and the loop
-that fetches every source once and then serves each user from that one pool.
+"""The daily run: the loop that fetches every source once and serves each user from that
+pool, and the date rules over a user's registry row and Runs tab.
 
 Dates are stamped in UTC everywhere, so these are plain date arithmetic."""
 
@@ -19,8 +19,7 @@ from jobbrief.sources import FETCHERS, SKIPPED, enrich, select_candidates
 
 DATA = files("jobbrief.data")  # packaged defaults: the prompt template and the shared board list
 
-# Days without an email before a quiet run says hello anyway: one quiet day stays silent,
-# but silence never lasts long enough to be mistaken for breakage.
+# Days without an email before a quiet run sends a heartbeat.
 HEARTBEAT_DAYS = 4
 
 
@@ -86,11 +85,10 @@ def run_user(token, user, pool, api_key, today):
 
 
 def run(env, today):
-    """The whole daily run: one fetch, then every user the registry serves, each user's
-    failure isolated from the next. Returns the process exit code, which is non-zero only
-    when the fetch itself failed or every user did, so a red run means the run."""
-    # Every value up front, so a missing one costs nothing but the read; SES and the
-    # sender address are mail.py's.
+    """The whole daily run: one fetch, then every user the registry serves, one user's
+    failure isolated from the next. Returns the process exit code, non-zero only when the
+    fetch failed or every user did."""
+    # Every value up front, so a missing one fails before any user is served.
     api_key, key_json = env["GEMINI_API_KEY"], env["SERVICE_ACCOUNT_JSON"]
     registry_id, operator = env["REGISTRY_SHEET_ID"], env["OPERATOR_EMAIL"]
     only_users = [email for email in env.get("ONLY_USERS", "").split(",") if email.strip()]

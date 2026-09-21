@@ -64,14 +64,13 @@ POOL = [posting("fake", "board", n, "Backend Engineer", "Remote", f"https://exam
 
 @pytest.fixture(autouse=True)
 def clear_skipped():
-    """SKIPPED is a module global the fetchers fill, so each test starts from a fresh run."""
+    """SKIPPED is a module global the fetchers fill, so each test starts it empty."""
     SKIPPED.clear()
     yield
     SKIPPED.clear()
 
 
 def unreachable(slug):
-    """A fetcher whose source is down: the URL recorded as skipped, nothing yielded."""
     SKIPPED.append("https://example.com/feed")
     return iter([])
 
@@ -110,7 +109,6 @@ def tabs_written(events, sheet_id):
 
 
 def logged_run(events, sheet_id):
-    """The Runs row written for one sheet, keyed by the header."""
     row = next(event[3][0] for event in events if event[0] == "append" and event[1] == sheet_id and event[2] == "Runs")
     return dict(zip(RUNS_HEADER, row))
 

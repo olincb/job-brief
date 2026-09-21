@@ -1,6 +1,6 @@
-"""Command line for the daily run and for its stages one at a time. `run` is the job the
-schedule calls; the stage subcommands debug a single user from files under --out (default
-./out), so that run is reproducible from that directory alone:
+"""Command line for the daily run and its stages. `run` is what the schedule calls; the
+stage subcommands debug a single user from files under --out (default ./out), so that run
+is reproducible from that directory alone:
 
   run        the registry's users, all from one fetch
   fetch      sources + Seen dump + title filters -> candidates.json
@@ -108,7 +108,6 @@ def cmd_log_run(args):
     rank_stats = read_json(args.out / "rank_stats.json", {})
     # sources (picks per source) and note stay blank here: the staged files have the pick
     # count but not which source each pick came from, and there is no failure text to note.
-    # The run loop holds both in memory and writes the real values.
     row = [datetime.now().strftime("%Y-%m-%d"), stats.get("new_candidates", ""), picks,
            len(stats.get("skipped_sources", [])), args.outcome, args.emailed,
            rank_stats.get("model", ""), rank_stats.get("tokens", ""), "", ""]

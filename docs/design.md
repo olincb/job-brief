@@ -129,8 +129,8 @@ app just made.
 
 1. Fetch every source once into a raw pool: company boards, Climatebase,
    Hacker News, RemoteOK, Himalayas, Apple, and whatever is added later. An
-   empty pool with every source skipped is the fetch itself failing, and no
-   user is run on it: a brief built from nothing reads as a quiet day.
+   empty pool with every source skipped is the fetch failing, and no user is
+   run on it.
 2. For each user in `Allowed` whose frequency makes today a send day: read their tabs,
    drop postings already in `Seen` or older than the lookback (stretched
    to cover the gap since their last send), apply their title filters,
