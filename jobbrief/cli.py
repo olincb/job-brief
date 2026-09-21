@@ -1,7 +1,8 @@
-"""Command line for one run, stage by stage. Every stage is a function over values in the
-other modules; these subcommands read those values from files and write results under
---out (default ./out), so a run is reproducible from that directory alone:
+"""Command line for the daily run and for its stages one at a time. `run` is the job the
+schedule calls; the stage subcommands debug a single user from files under --out (default
+./out), so that run is reproducible from that directory alone:
 
+  run        the registry's users, all from one fetch
   fetch      sources + Seen dump + title filters -> candidates.json
   prompt     template + profile + Postings dump + candidates -> prompt.txt
   rank       prompt.txt -> Gemini API -> model.txt
@@ -18,18 +19,23 @@ import argparse
 import json
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from importlib.resources import files
 from pathlib import Path
 
 from jobbrief.llm import MODELS, RETRIES, generate, parse_model_json
 from jobbrief.rank import build_prompt, finish
 from jobbrief.render import heartbeat_html, render
+from jobbrief.run import HEARTBEAT_DAYS, run
 from jobbrief.sheet import days_since_email, init_sheet, load_sheet_rows, service_account_token
 from jobbrief.sources import FETCHERS, SKIPPED, enrich, select_candidates
 
 
 DATA = files("jobbrief.data")  # packaged defaults: the prompt template and the shared board list, unless a flag overrides
+
+
+def cmd_run(args):
+    sys.exit(run(os.environ, datetime.now(timezone.utc).date()))
 
 
 def cmd_fetch(args):
@@ -65,7 +71,7 @@ def cmd_rank(args):
 def cmd_finish(args):
     result = parse_model_json(Path(args.model_output or args.out / "model.txt").read_text())
     candidates = json.loads((args.out / "candidates.json").read_text())
-    # The staged pipeline has nowhere to put picks per source: the run loop (#16) writes it.
+    # The staged pipeline has nowhere to put picks per source; the run loop writes that column.
     brief_markdown, postings_rows, seen_rows, _ = finish(result, candidates, datetime.now().strftime("%Y-%m-%d"))
     (args.out / "brief.md").write_text(brief_markdown)
     (args.out / "postings_rows.json").write_text(json.dumps({"values": postings_rows}))
@@ -102,7 +108,7 @@ def cmd_log_run(args):
     rank_stats = read_json(args.out / "rank_stats.json", {})
     # sources (picks per source) and note stay blank here: the staged files have the pick
     # count but not which source each pick came from, and there is no failure text to note.
-    # The run loop (#16) holds both in memory and writes the real values.
+    # The run loop holds both in memory and writes the real values.
     row = [datetime.now().strftime("%Y-%m-%d"), stats.get("new_candidates", ""), picks,
            len(stats.get("skipped_sources", [])), args.outcome, args.emailed,
            rank_stats.get("model", ""), rank_stats.get("tokens", ""), "", ""]
@@ -121,6 +127,8 @@ def main():
     sub = parser.add_subparsers(dest="cmd", required=True)
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--out", type=Path, default=Path("out"), help="directory for this run's files (default: ./out)")
+
+    sub.add_parser("run", help="the daily run: fetch once, then every user in the registry").set_defaults(func=cmd_run)
 
     p = sub.add_parser("fetch", parents=[common])
     p.add_argument("--sources", default="", help="board list JSON; default is the one shipped in the package")
@@ -155,7 +163,7 @@ def main():
     p = sub.add_parser("heartbeat", parents=[common])
     p.add_argument("--runs", default="", help="saved dump of the Runs tab (default: <out>/runs.json)")
     p.add_argument("--postings", default="", help="saved dump of the Postings tab (default: <out>/postings.json)")
-    p.add_argument("--days", type=int, default=4)
+    p.add_argument("--days", type=int, default=HEARTBEAT_DAYS)
     p.set_defaults(func=cmd_heartbeat)
 
     p = sub.add_parser("log-run", parents=[common])

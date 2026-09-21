@@ -17,7 +17,7 @@ is added. The design and its reasons are in `design.md`; this is only a map.
 
 - `__init__.py` — package docstring only.
 - `__main__.py` — hands off to `cli.main`.
-- `cli.py` — `python -m jobbrief`: argparse and the thin subcommands that read files and write under `--out`. The only module that touches the filesystem, and with `mail.py` one of the two that read the environment.
+- `cli.py` — `python -m jobbrief`: argparse, the `run` subcommand that hands the whole daily run to `run.py`, and the stage subcommands that debug one user from files under `--out`. The only module that touches the filesystem, and with `mail.py` one of the two that read the environment.
 - `mail.py` — `send(to, subject, html, text)`: one email through SES over SMTP (multipart/alternative, STARTTLS on 587), plus the two failure-notice bodies. Reads the SES credentials and sender from the environment.
 - `sources.py` — where postings come from: HTTP get, HTML stripping, `condense`, one generator per source, the enrichers, and `select_candidates` over the fetched pool.
 - `llm.py` — `generate`, the one Gemini call with retries and the fallback model inside it, and the tolerant JSON parser.
@@ -26,7 +26,7 @@ is added. The design and its reasons are in `design.md`; this is only a map.
 - `render.py` — Markdown to inline-styled HTML, the backlog line, the sheet-link footer, the heartbeat email body.
 - `sheet.py` — the six per-user tab headers, `days_since_email` for the heartbeat rule, and the Sheets/Drive client: a service-account token, one authenticated request, the tab, row and permission operations, and `init_sheet` on top.
 - `registry.py` — the registry sheet: the `Users` and `Allowed` tab headers and `users_to_run`, which picks the active users a run serves from those on `Allowed`, and applies `ONLY_USERS`.
-- `run.py` — the daily run: `is_send_day` for a user's frequency and `lookback` stretched to the gap since their last emailed brief.
+- `run.py` — the daily run: the loop behind `python -m jobbrief run`, which fetches every source once and then serves each user from that pool, plus the date rules it turns on, `is_send_day` for a user's frequency and `lookback` stretched to the gap since their last emailed brief.
 - `find_boards.py` — operator tool: turns company names into verified ATS slugs for `sources.base.json`.
 - `data/prompt.md` — instructions to the model: scoring rubric, brief layout, JSON contract.
 - `data/profile_prompt.md` — instructions to the model that drafts a profile: what to trust, what the Answers columns hold, and the profile's sections.
@@ -58,7 +58,7 @@ Verify command: `python -m pytest`. Runs with no network; see `tests/README.md`.
 - `test_render.py` — numbered picks stay one list across blank lines; links, bold, sheet footer.
 - `test_heartbeat.py` — the heartbeat rule over synthetic Runs rows.
 - `test_registry.py` — `users_to_run`: inactive rows dropped, a missing `Allowed` row stops and restarts a user, no filter returns all active, `ONLY_USERS` restricts case-insensitively.
-- `test_run.py` — each frequency on a send and a non-send day; the lookback stretched by a gap, held at the default by a recent send, and defaulted when nothing was ever emailed.
+- `test_run.py` — each frequency on a send and a non-send day; the lookback stretched by a gap, held at the default by a recent send, and defaulted when nothing was ever emailed; and the loop over fake users: one failing user leaves the next served, `ONLY_USERS`, a non-send day, an empty filter, the heartbeat either side of its threshold, and every source skipped.
 - `test_sheet.py` — `init_sheet` lays the six tabs, adds missing ones, and writes every header but Profile; the editor, row and cell operations.
 - `test_web.py` — sign-in scopes, the gate (an allowed address, an unknown one, an `Allowed` row deleted under a live session), the invite email, state and verification refusals, sign-out, signup end to end (submit, the Drive callback's sheet and registry writes, a lost stash, a model failure), and settings: what the page shows, what a save writes, pause, retake, delete-me.
 - `test_profile.py` — the generator prompt from an invented `Answers` row, the title filters as typed, a Word resume to text, and the PDF attachment.

@@ -128,13 +128,15 @@ app just made.
 ### Daily run
 
 1. Fetch every source once into a raw pool: company boards, Climatebase,
-   Hacker News, RemoteOK, Himalayas, Apple, and whatever is added later.
+   Hacker News, RemoteOK, Himalayas, Apple, and whatever is added later. An
+   empty pool with every source skipped is the fetch itself failing, and no
+   user is run on it: a brief built from nothing reads as a quiet day.
 2. For each user in `Allowed` whose frequency makes today a send day: read their tabs,
    drop postings already in `Seen` or older than the lookback (stretched
    to cover the gap since their last send), apply their title filters,
    condense each posting to its requirements, one Gemini call with the
-   primary-then-fallback retry budget, append `Seen` and `Postings`,
-   render HTML, send via SES, append a `Runs` row with candidates, picks,
+   primary-then-fallback retry budget, render HTML, send via SES, append
+   `Postings` and `Seen`, and append a `Runs` row with candidates, picks,
    model, tokens, and picks per source.
 3. Quiet day: heartbeat rule, counted from the last send day.
 4. Non-send day: a `skipped` Runs row and nothing else. Picks are never
@@ -142,6 +144,8 @@ app just made.
    agree.
 5. A failure for one user logs a `failed` row, emails the user and the
    operator, and the loop continues.
+6. The run exits non-zero only when the fetch failed or every user did, so
+   a red run in Actions means the run rather than one person's sheet.
 
 Logs carry sheet ids and counts, never addresses or profile text.
 
@@ -230,10 +234,10 @@ because every recipient is known personally.
   configuration. A Fly Machine with `schedule = "daily"` was the
   alternative; it fires at an interval from the Machine's creation, not at
   a time of day.
-- **Scoping.** `ONLY_USERS`, a list of emails, restricts the run to those
-  users end to end and treats everyone else as a non-send day. It is a
-  manual-trigger input on Actions and an env var locally. This replaces a
-  dry-run mode.
+- **Scoping.** `ONLY_USERS`, emails separated by commas, restricts the run
+  to those users end to end and treats everyone else as a non-send day.
+  Empty or unset is everyone. It is a manual-trigger input on Actions and an
+  env var locally. This replaces a dry-run mode.
 - **Operator digest.** Immediate email on any user failure or a
   "sources thin" flag. Otherwise a Monday summary: users, sends, quiet
   days, median fit per user, source attribution.
