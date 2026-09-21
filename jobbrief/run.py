@@ -62,7 +62,8 @@ def run_user(token, user, pool, api_key, today):
     candidates, capped = select_candidates(
         pool, seen, title_filter, settings["title_exclude"].splitlines(),
         lookback(int(settings["lookback_days"]), runs_rows, today))
-    candidates = enrich(candidates)
+    # Enrich a copy: the pool is shared, so enriching in place would re-fetch it for the next user.
+    candidates = enrich([dict(job) for job in candidates])
     prompt = build_prompt(DATA.joinpath("prompt.md").read_text(), read_cell(token, sheet_id, "Profile!A1"),
                           pipeline, candidates, int(settings["max_picks"]))
     text, model, usage = generate(prompt, MODELS, api_key, RETRIES, json_output=True)
@@ -88,7 +89,7 @@ def run(env, today):
     """The whole daily run: one fetch, then every user the registry serves, one user's
     failure isolated from the next. Returns the process exit code, non-zero only when the
     fetch failed or every user did."""
-    # Every value up front, so a missing one fails before any user is served.
+    # The four the run itself reads, up front, so a missing one fails before any user is served.
     api_key, key_json = env["GEMINI_API_KEY"], env["SERVICE_ACCOUNT_JSON"]
     registry_id, operator = env["REGISTRY_SHEET_ID"], env["OPERATOR_EMAIL"]
     only_users = [email for email in env.get("ONLY_USERS", "").split(",") if email.strip()]
@@ -114,12 +115,12 @@ def run(env, today):
         except (Exception, SystemExit) as exc:  # a dead end in llm.py is a SystemExit, and one user's is not the run's
             failed += 1
             print(f"{sheet_id}: {type(exc).__name__}", file=sys.stderr)
-            try:
-                append_rows(token, sheet_id, "Runs", [runs_row(today, "failed", "no", note=str(exc))])
-            except (Exception, SystemExit) as write_failure:
-                print(f"{sheet_id}: the failed row did not write either, {type(write_failure).__name__}", file=sys.stderr)
             notice = mail.operator_failure_notice(sheet_id, str(exc))
-            mail.send(operator, "Job brief: a run failed", f"<pre>{notice}</pre>", notice)
-            mail.send(user["email"], "Job brief: today's run did not finish",
-                      f"<p>{mail.USER_FAILURE_NOTICE}</p>", mail.USER_FAILURE_NOTICE)
+            try:  # a sheet or a mailbox that will not take the news is still only this user's failure
+                append_rows(token, sheet_id, "Runs", [runs_row(today, "failed", "no", note=str(exc))])
+                mail.send(operator, "Job brief: a run failed", f"<pre>{notice}</pre>", notice)
+                mail.send(user["email"], "Job brief: today's run did not finish",
+                          f"<p>{mail.USER_FAILURE_NOTICE}</p>", mail.USER_FAILURE_NOTICE)
+            except (Exception, SystemExit) as unreported:
+                print(f"{sheet_id}: the failure went unreported, {type(unreported).__name__}", file=sys.stderr)
     return 1 if users and failed == len(users) else 0

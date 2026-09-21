@@ -58,7 +58,8 @@ USER_B = {"email": "b@example.com", "sheet_id": "sheet-b", "active": "yes", "fre
 USER_C = {"email": "c@example.com", "sheet_id": "sheet-c", "active": "yes", "frequency": "daily", "added": "2026-01-01"}
 SETTINGS = [{"key": "title_filter", "value": "engineer"}, {"key": "title_exclude", "value": ""},
             {"key": "lookback_days", "value": "3"}, {"key": "max_picks", "value": "5"}]
-POOL = [posting("fake", "board", n, "Backend Engineer", "Remote", f"https://example.com/jobs/{n}", None, "a description")
+SNIPPET = "5+ years of experience with Python. " * 120  # long enough that condensing it shows
+POOL = [posting("fake", "board", n, "Backend Engineer", "Remote", f"https://example.com/jobs/{n}", None, SNIPPET)
         for n in range(3)]
 
 
@@ -131,6 +132,7 @@ def test_one_user_failing_leaves_the_next_one_served(monkeypatch):
     written = [event[0] for event in events if event[0] in ("email", "append") and event[1] in ("sheet-b", "b@example.com")]
     assert written == ["email", "append", "append", "append"]
     assert tabs_written(events, "sheet-b") == ["Postings", "Seen", "Runs"]
+    assert POOL[0]["snippet"] == SNIPPET  # the pool is shared, so no user may leave it condensed
 
 
 def test_only_users_limits_the_run_to_the_named_users(monkeypatch):
