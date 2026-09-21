@@ -295,10 +295,16 @@ def is_recent(iso, lookback_days):
     return posted >= datetime.now(timezone.utc) - timedelta(days=lookback_days)
 
 
+# The prompt's size budget: more than this many condensed postings crowds out the
+# profile and the pipeline in one model request.
+CANDIDATE_CAP = 150
+
+
 def select_candidates(postings, seen_urls, title_filter, title_exclude, lookback_days):
-    """One user's view of the pool: unseen, recent, and passing their title filters. A
-    title must match one filter pattern and no exclude pattern, case-insensitively.
-    Overlapping sources can return the same posting, so the result is keyed by id."""
+    """One user's view of the pool as `(candidates, capped)`: unseen, recent, and passing
+    their title filters. A title must match one filter pattern and no exclude pattern,
+    case-insensitively. Overlapping sources can return the same posting, so the result is
+    keyed by id."""
     title_ok = re.compile("|".join(title_filter or []) or ".", re.IGNORECASE)
     title_bad = re.compile("|".join(title_exclude or []) or "(?!)", re.IGNORECASE)
     candidates = {}
@@ -307,7 +313,13 @@ def select_candidates(postings, seen_urls, title_filter, title_exclude, lookback
             continue
         if title_ok.search(job["title"]) and not title_bad.search(job["title"]):
             candidates[job["id"]] = job
-    return list(candidates.values())
+    selected = list(candidates.values())
+    if len(selected) <= CANDIDATE_CAP:
+        return selected, False
+    # ISO timestamps order correctly as strings, a posting with no date sorts oldest, and
+    # postings sharing a timestamp keep the order their sources returned them in.
+    selected.sort(key=lambda job: job["posted_at"] or "", reverse=True)
+    return selected[:CANDIDATE_CAP], True
 
 
 def enrich(candidates):

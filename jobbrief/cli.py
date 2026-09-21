@@ -36,9 +36,10 @@ def cmd_fetch(args):
     sources = json.loads(Path(args.sources).read_text() if args.sources else DATA.joinpath("sources.base.json").read_text())
     seen = {row["url"] for row in load_sheet_rows(args.seen or args.out / "seen.json")}
     pool = (job for ats, fetcher in FETCHERS.items() for slug in sources.get(ats, []) for job in fetcher(slug))
-    candidates = enrich(select_candidates(pool, seen, args.title_filter, args.title_exclude, args.lookback_days))
+    candidates, capped = select_candidates(pool, seen, args.title_filter, args.title_exclude, args.lookback_days)
+    candidates = enrich(candidates)
     (args.out / "candidates.json").write_text(json.dumps(candidates, indent=1))
-    (args.out / "fetch_stats.json").write_text(json.dumps({"new_candidates": len(candidates), "skipped_sources": SKIPPED}))
+    (args.out / "fetch_stats.json").write_text(json.dumps({"new_candidates": len(candidates), "skipped_sources": SKIPPED, "capped": capped}))
     print(f"{len(candidates)} new candidates, {len(SKIPPED)} sources skipped", file=sys.stderr)
 
 
@@ -64,7 +65,8 @@ def cmd_rank(args):
 def cmd_finish(args):
     result = parse_model_json(Path(args.model_output or args.out / "model.txt").read_text())
     candidates = json.loads((args.out / "candidates.json").read_text())
-    brief_markdown, postings_rows, seen_rows = finish(result, candidates, datetime.now().strftime("%Y-%m-%d"))
+    # The staged pipeline has nowhere to put picks per source: the run loop (#16) writes it.
+    brief_markdown, postings_rows, seen_rows, _ = finish(result, candidates, datetime.now().strftime("%Y-%m-%d"))
     (args.out / "brief.md").write_text(brief_markdown)
     (args.out / "postings_rows.json").write_text(json.dumps({"values": postings_rows}))
     (args.out / "seen_rows.json").write_text(json.dumps({"values": seen_rows}))

@@ -21,7 +21,7 @@ is added. The design and its reasons are in `design.md`; this is only a map.
 - `mail.py` — `send(to, subject, html, text)`: one email through SES over SMTP (multipart/alternative, STARTTLS on 587), plus the two failure-notice bodies. Reads the SES credentials and sender from the environment.
 - `sources.py` — where postings come from: HTTP get, HTML stripping, `condense`, one generator per source, the enrichers, and `select_candidates` over the fetched pool.
 - `llm.py` — `generate`, the one Gemini call with retries and the fallback model inside it, and the tolerant JSON parser.
-- `rank.py` — `build_prompt` from template, profile, pipeline, and candidates; `finish` from the model's answer to the brief and sheet rows.
+- `rank.py` — `build_prompt` from template, profile, pipeline, and candidates; `finish` from the model's answer to the brief, the sheet rows, and picks per source.
 - `profile.py` — signup's model stage: `draft_profile` from an `Answers` row and an optional resume to the prose profile and the `Settings` values, with the docx-to-text step and the title filters behind it.
 - `render.py` — Markdown to inline-styled HTML, the backlog line, the sheet-link footer, the heartbeat email body.
 - `sheet.py` — the six per-user tab headers, `days_since_email` for the heartbeat rule, and the Sheets/Drive client: a service-account token, one authenticated request, the tab, row and permission operations, and `init_sheet` on top.

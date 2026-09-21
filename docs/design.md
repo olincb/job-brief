@@ -174,8 +174,8 @@ Guardrails:
   questions 7 and 8 as the user typed them, editable in settings. Seniority
   is not mechanized: what a level word implies reads differently in every
   field, so it stays a judgment the profile carries.
-- Candidates per user per run are capped around 150; hitting the cap is
-  flagged as a filter that is too loose.
+- Candidates per user per run are capped at 150, the newest kept; hitting
+  the cap is flagged as a filter that is too loose.
 
 Coverage is measured, not configured. Per user per run: candidate count,
 pick count, and which source each pick came from, all of which the run
