@@ -7,4 +7,5 @@ from jobbrief.web.app import create_app
 
 PORT = 8080  # what the container listens on; the deployment's proxy points at it
 
-serve(create_app(), host="0.0.0.0", port=PORT)
+# Only the host's proxy can reach this port; trusting its X-Forwarded-Proto keeps OAuth redirect URIs https.
+serve(create_app(), host="0.0.0.0", port=PORT, trusted_proxy="*", trusted_proxy_headers={"x-forwarded-proto"})

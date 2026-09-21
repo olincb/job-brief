@@ -14,7 +14,6 @@ from datetime import datetime
 from html import escape
 
 from flask import Flask, abort, redirect, render_template, request, session, url_for
-from werkzeug.middleware.proxy_fix import ProxyFix
 
 from jobbrief import llm, mail, profile, registry, sheet
 from jobbrief.web import form, oauth
@@ -151,7 +150,6 @@ def create_app():
     app.secret_key = os.environ["SESSION_KEY"]
     # Fly terminates TLS and forwards the scheme; without this the redirect URI is built as
     # http and does not match the one registered on the OAuth client.
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1)
 
     @app.before_request
     def require_gated_session():
