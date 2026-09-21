@@ -11,7 +11,7 @@ TUESDAY = date(2026, 3, 10)
 
 
 def runs(*rows):
-    """Synthetic Runs rows in the shape read_tab returns. `rows` is (date, outcome, emailed)."""
+    """Synthetic Runs rows in the shape read_tab returns; each row is (date, outcome, emailed)."""
     return [dict(zip(RUNS_HEADER, [day, "", "", "", outcome, emailed, "", "", "", ""]))
             for day, outcome, emailed in rows]
 
