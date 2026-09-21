@@ -1,31 +1,17 @@
 # Tests
 
-`python -m pytest` runs everything offline in well under a second. A fixture in
-`conftest.py` replaces `urllib.request.urlopen` for every test, so code that
-reaches for a live board fails with an assertion instead of passing against
-whatever the board happens to return today. Tests that exercise a fetcher
+Recorded fixtures and how to re-record them. Running the suite is in the
+[README](../README.md); what each test module covers is in
+[`docs/context-map.md`](../docs/context-map.md).
+
+A fixture in `conftest.py` replaces `urllib.request.urlopen` for every test, so
+code that reaches for a live board fails with an assertion instead of passing
+against whatever the board happens to return today. Tests that exercise a fetcher
 monkeypatch `jobbrief.sources.get`, the engine's one network call, with a lookup
 over recorded bodies.
 
 ## Layout
 
-- `test_*.py`: one module per concern. Condense; the Markdown renderer;
-  the heartbeat rule; fetching (one fetcher against a recording, title filters,
-  dedup against the Seen tab); ranking (prompt assembly, the model call's
-  fallback budget against a fake `call_gemini`, picks into rows); the
-  Sheets/Drive client (init_sheet lays the six tabs and never writes Profile,
-  and the editor, row and cell operations, against a fake request function that
-  records the calls they would make); the registry selection
-  (inactive rows dropped, a user off the `Allowed` tab dropped with them,
-  `ONLY_USERS` scoping, case-insensitive); profile
-  drafting (the generator prompt from an invented answers row, the title
-  filters as typed, a Word resume to text); the
-  mail message builder and failure-notice bodies (headers, multipart order,
-  no address), which never open an SMTP connection; and the web app's sign-in,
-  gate and sign-out, its signup flow, and settings, against hand-built stand-ins for
-  Google's token and `userinfo` responses served through a fake `oauth.request`,
-  with the sheet writes recorded through a fake `sheet.api` and the model stage
-  faked.
 - `fixtures/<source>/<slug>.json`: a board's response saved unmodified.
 - `fixtures/posting.txt`: one posting as `condense` receives it, after HTML is
   stripped. Chosen because it states years of experience, remote policy, and a

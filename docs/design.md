@@ -235,8 +235,8 @@ because every recipient is known personally.
   alternative; it fires at an interval from the Machine's creation, not at
   a time of day.
 - **Scoping.** `ONLY_USERS`, emails separated by commas, restricts the run
-  to those users end to end and treats everyone else as a non-send day.
-  Empty or unset is everyone. It is a manual-trigger input on Actions and an
+  to those users end to end. The loop never reaches anyone else, so no
+  `Runs` row is written for them. Empty or unset is everyone. It is a manual-trigger input on Actions and an
   env var locally. This replaces a dry-run mode.
 - **Operator digest.** Immediate email on any user failure or a
   "sources thin" flag. Otherwise a Monday summary: users, sends, quiet

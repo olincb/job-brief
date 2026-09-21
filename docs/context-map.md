@@ -8,7 +8,7 @@ is added. The design and its reasons are in `design.md`; this is only a map.
 
 - `AGENTS.md` — the contract for working here: non-negotiables, workflow, this map's rule.
 - `CLAUDE.md` — imports `AGENTS.md` for Claude Code.
-- `README.md` — what the project is, the install command, and the web app's OAuth and environment setup.
+- `README.md` — what the project is, the operator's setup steps and environment, running the daily job, debugging one stage from `out/`, adding a fetcher, changing the prompt.
 - `pyproject.toml` — package metadata, the one runtime dependency (`google-auth`), the `web` extra, pytest configuration.
 - `Dockerfile` — the web app image: install the `web` extra, serve `python -m jobbrief.web`. `fly.toml` and the secrets are in the ops repo.
 - `LICENSE` — MIT.
@@ -51,7 +51,7 @@ is added. The design and its reasons are in `design.md`; this is only a map.
 
 Verify command: `python -m pytest`. Runs with no network; see `tests/README.md`.
 
-- `README.md` — layout, the no-network guarantee, and how to re-record fixtures.
+- `README.md` — the fixture layout, the no-network guarantee, and how to re-record fixtures.
 - `conftest.py` — blocks `urlopen` for every test; `fixture_dir` and `out` fixtures.
 - `record_fixtures.py` — the deliberate network step: records boards raw and picks the condense posting.
 - `test_condense.py` — years, remote, and pay lines survive condensing.
