@@ -17,10 +17,10 @@ def users_to_run(rows, allowed_rows, only_users):
     them; `only_users` is a collection of emails to restrict to, or empty/None for everyone.
     Deleting an `Allowed` row is how the operator switches someone off, so the run checks that
     tab every day rather than trusting the roster alone; putting the row back turns them on
-    again with their settings and sheet as they left them. Email matching is case-insensitive;
-    everyone excluded here is a non-send day. `active` and `email` are hand-edited in a
-    spreadsheet, so both are trimmed and `active` lowercased before comparing, to keep a stray
-    capital or trailing space from silently dropping a user."""
+    again with their settings and sheet as they left them. Email matching is case-insensitive; the
+    run never reaches anyone excluded here, so nothing is written for them. `active` and `email`
+    are hand-edited in a spreadsheet, so both are trimmed and `active` lowercased before comparing,
+    to keep a stray capital or trailing space from silently dropping a user."""
     allowed = {row.get("email", "").strip().lower() for row in allowed_rows}
     only = {email.strip().lower() for email in only_users} if only_users else None
     served = []
