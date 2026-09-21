@@ -227,7 +227,9 @@ because every recipient is known personally.
 - **Schedule.** GitHub Actions cron at 22:00 UTC. Every UTC time from
   08:00 to 23:59 shares its calendar date with all continental US zones,
   so dates are stamped in UTC everywhere and there is no timezone
-  configuration.
+  configuration. A Fly Machine with `schedule = "daily"` was the
+  alternative; it fires at an interval from the Machine's creation, not at
+  a time of day.
 - **Scoping.** `ONLY_USERS`, a list of emails, restricts the run to those
   users end to end and treats everyone else as a non-send day. It is a
   manual-trigger input on Actions and an env var locally. This replaces a
@@ -243,7 +245,8 @@ because every recipient is known personally.
   on a cron. The web app deploys from a second, manually dispatched
   workflow that checks out the engine at a tag, adds the ops repo's
   `fly.toml`, refreshes Fly's secrets from the ops repo's Actions secrets,
-  and runs `fly deploy --remote-only`. Nothing is deployed from a laptop.
+  and runs `fly deploy --remote-only`; it is the one way the app is
+  deployed.
 - **Secrets have one home.** The ops repo's Actions secrets hold every
   secret; Fly holds a copy that the deploy workflow rewrites each time.
   Rotating anything is: update the Actions secret, dispatch the deploy.
@@ -366,19 +369,28 @@ and the heartbeat rule. Issues carry the detail.
 
 ## Verified and open
 
-Verified: `drive.file` covers create, populate and share; it is
-non-sensitive on both the Drive and Sheets scope pages; a service account
-adds tabs and writes headers to a sheet in a personal Drive shared to it as
-editor, and reads the registry the same way; Gemini accepts PDFs inline; SES sandbox behavior and
-production-access path, granted the same day it was requested with no
-justification asked beyond a website URL, so a `send` from the engine to
-any address works before the first friend signs up; Fly scheduled
-Machines and Actions cron characteristics.
+Everything below has been tested with real credentials.
 
-Open: the Drive `permissions` endpoints on a sheet shared to the service
-account, which `drive.file` returned 404 for and the wide Drive scope should
-answer. The operator's next delete-me run confirms it. Everything else above
-has been tested with real credentials.
+- `drive.file`, the scope a user grants at signup, covers creating the
+  sheet, writing to it, and sharing it with the service account. Google
+  lists it as non-sensitive on both the Drive and Sheets scope pages.
+- The service account, holding the `drive` scope, adds tabs and writes
+  headers to a sheet in a personal Drive that was shared to it as editor,
+  and reads the registry the same way.
+- The service account's calls to Drive's `permissions` endpoints work on a
+  user's sheet under the `drive` scope. Under `drive.file` they return 404:
+  that scope reaches only files the token's own app created, and a sheet
+  the user created and then shared is not one of them. Delete-me is the
+  path that makes these calls: it lists the sheet's permissions to find the
+  service account's own entry and deletes it, leaving the sheet with the
+  user.
+- Gemini accepts PDFs inline.
+- SES sandbox behavior and the production-access path. Access was granted
+  the same day it was requested with no justification asked beyond a
+  website URL, so a `send` from the engine to any address works before the
+  first friend signs up.
+
+Open: nothing.
 
 ## Deliberately unspecified
 
