@@ -295,8 +295,7 @@ def is_recent(iso, lookback_days):
     return posted >= datetime.now(timezone.utc) - timedelta(days=lookback_days)
 
 
-# The prompt's size budget: more than this many condensed postings crowds out the
-# profile and the pipeline in one model request.
+# More than this many condensed postings crowds out the profile and pipeline in the model request.
 CANDIDATE_CAP = 150
 
 
@@ -316,8 +315,7 @@ def select_candidates(postings, seen_urls, title_filter, title_exclude, lookback
     selected = list(candidates.values())
     if len(selected) <= CANDIDATE_CAP:
         return selected, False
-    # ISO timestamps order correctly as strings, a posting with no date sorts oldest, and
-    # postings sharing a timestamp keep the order their sources returned them in.
+    # ISO timestamps order correctly as strings, and a posting with no date sorts oldest.
     selected.sort(key=lambda job: job["posted_at"] or "", reverse=True)
     return selected[:CANDIDATE_CAP], True
 
