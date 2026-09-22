@@ -179,7 +179,7 @@ pipeline setting it informs, and *shape:* the answer type.
   typed. What a level word implies reads differently in every field, so
   seniority is judgment the profile carries, not a list the engine keeps.
 - Everything about frequency, pick count, and pause is a setting, not a
-  question; defaults are daily, ten picks, active.
+  question; defaults are daily, fifteen picks, active.
 
 ## Answers columns
 

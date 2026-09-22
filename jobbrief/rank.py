@@ -3,6 +3,7 @@ profile, pipeline, and candidates, and turning the answer into the brief and she
 
 import json
 import sys
+from collections import Counter
 
 
 def build_prompt(template, profile, pipeline, candidates, max_picks):
@@ -18,10 +19,11 @@ def build_prompt(template, profile, pipeline, candidates, max_picks):
 
 
 def finish(result, candidates, today):
-    """The model's answer as the brief and the rows to append. A pick whose id is not a
-    real candidate is dropped rather than trusted."""
+    """The model's answer as the brief, the rows to append, and picks per source for the
+    Runs row. A pick whose id is not a real candidate is dropped rather than trusted."""
     by_id = {c["id"]: c for c in candidates}
     postings_rows = []
+    per_source = Counter()
     for pick in result.get("picks", []):
         cand = by_id.get(pick["id"])
         if cand is None:
@@ -31,5 +33,7 @@ def finish(result, candidates, today):
             today, cand["company"], cand["title"], cand["location"], cand["url"],
             pick.get("fit", ""), pick.get("reason", ""), pick.get("risk", ""), "", "",
         ])
+        per_source[cand["id"].split(":", 1)[0]] += 1
     seen_rows = [[today, c["id"], c["url"]] for c in candidates]
-    return result["brief_markdown"], postings_rows, seen_rows
+    sources = " ".join(f"{ats}:{n}" for ats, n in sorted(per_source.items(), key=lambda item: (-item[1], item[0])))
+    return result["brief_markdown"], postings_rows, seen_rows, sources

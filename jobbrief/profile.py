@@ -9,7 +9,7 @@ from importlib.resources import files
 from xml.etree import ElementTree
 
 from jobbrief.llm import generate
-from jobbrief.sheet import ANSWERS_HEADER
+from jobbrief.sheet import ANSWERS_HEADER, LOOKBACK_DAYS_DEFAULT, MAX_PICKS_DEFAULT
 
 
 DATA = files("jobbrief.data")
@@ -19,10 +19,6 @@ DATA = files("jobbrief.data")
 ASKED = [column for column in ANSWERS_HEADER if column not in ("resume", "submitted")]
 
 WORD_XML = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
-
-# The rest of Settings at signup; the user changes both in settings later.
-LOOKBACK_DAYS = 3
-MAX_PICKS = 10
 
 
 def docx_text(data):
@@ -70,7 +66,7 @@ def build_prompt(template, answers, resume_text=""):
 def draft_profile(answers, models, api_key, retries, resume=None):
     """One signup's Profile text and the Settings values to write beside it, from an Answers
     row and an optional resume as `(filename, bytes)`. Raises ValueError for a resume that is
-    neither a PDF nor a .docx, and `generate` raises SystemExit when every model attempt
+    neither a PDF nor a .docx, and `generate` raises ModelError when every model attempt
     fails; both leave signup with nothing written."""
     pdf, resume_text = None, ""
     if resume:
@@ -87,6 +83,6 @@ def draft_profile(answers, models, api_key, retries, resume=None):
     return profile, {
         "title_filter": "\n".join(title_filter),
         "title_exclude": "\n".join(title_exclude),
-        "lookback_days": LOOKBACK_DAYS,
-        "max_picks": MAX_PICKS,
+        "lookback_days": LOOKBACK_DAYS_DEFAULT,
+        "max_picks": MAX_PICKS_DEFAULT,
     }

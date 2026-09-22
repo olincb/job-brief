@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "jobbrief"
-version = "0.1.1"
+version = "0.2.0"
 description = "Periodic email of job postings ranked against a prose profile, with a Google Sheet as memory."
 readme = "README.md"
 license = { file = "LICENSE" }

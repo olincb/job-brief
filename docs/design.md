@@ -128,20 +128,25 @@ app just made.
 ### Daily run
 
 1. Fetch every source once into a raw pool: company boards, Climatebase,
-   Hacker News, RemoteOK, Himalayas, Apple, and whatever is added later.
+   Hacker News, RemoteOK, Himalayas, Apple, and whatever is added later. An
+   empty pool with every source skipped is the fetch failing, and no user is
+   run on it.
 2. For each user in `Allowed` whose frequency makes today a send day: read their tabs,
    drop postings already in `Seen` or older than the lookback (stretched
    to cover the gap since their last send), apply their title filters,
    condense each posting to its requirements, one Gemini call with the
-   primary-then-fallback retry budget, append `Seen` and `Postings`,
-   render HTML, send via SES, append a `Runs` row with candidates, picks,
+   primary-then-fallback retry budget, render HTML, send via SES, append
+   `Postings` and `Seen`, and append a `Runs` row with candidates, picks,
    model, tokens, and picks per source.
-3. Quiet day: heartbeat rule, counted from the last send day.
+3. Quiet day: heartbeat rule, counted from the last email of any kind, so a
+   run of quiet days sends a heartbeat every four of them.
 4. Non-send day: a `skipped` Runs row and nothing else. Picks are never
    appended to a sheet without an email, so the sheet and the inbox always
    agree.
 5. A failure for one user logs a `failed` row, emails the user and the
    operator, and the loop continues.
+6. The run exits non-zero only when the fetch failed or every user did, so
+   a red run in Actions means the run rather than one person's sheet.
 
 Logs carry sheet ids and counts, never addresses or profile text.
 
@@ -152,7 +157,8 @@ weekdays, weekly), pick cap, pause, and "retake the questionnaire," which
 regenerates the profile from fresh answers. Recent `Runs` rows are shown.
 Frequency and pause write to the registry row, not the user's sheet, so the
 daily run decides a non-send day without opening the sheet; the rest write
-to `Settings`. Weekly users get their brief on Monday.
+to `Settings`. Weekly users get their brief on Monday. The pick cap defaults
+to 15 and the lookback to 7 days; a blank `Settings` cell means the default.
 Delete-me removes the registry row and the service account's editor access;
 the sheet stays with the user. Their `Allowed` row stays too, so they are
 still invited and signing up again makes a new sheet. To switch someone off
@@ -174,8 +180,8 @@ Guardrails:
   questions 7 and 8 as the user typed them, editable in settings. Seniority
   is not mechanized: what a level word implies reads differently in every
   field, so it stays a judgment the profile carries.
-- Candidates per user per run are capped around 150; hitting the cap is
-  flagged as a filter that is too loose.
+- Candidates per user per run are capped at 150, the newest kept; hitting
+  the cap is flagged as a filter that is too loose.
 
 Coverage is measured, not configured. Per user per run: candidate count,
 pick count, and which source each pick came from, all of which the run
@@ -230,10 +236,10 @@ because every recipient is known personally.
   configuration. A Fly Machine with `schedule = "daily"` was the
   alternative; it fires at an interval from the Machine's creation, not at
   a time of day.
-- **Scoping.** `ONLY_USERS`, a list of emails, restricts the run to those
-  users end to end and treats everyone else as a non-send day. It is a
-  manual-trigger input on Actions and an env var locally. This replaces a
-  dry-run mode.
+- **Scoping.** `ONLY_USERS`, emails separated by commas, restricts the run
+  to those users end to end; the loop never reaches anyone else, so they get
+  no `Runs` row. Empty or unset is everyone. It is a manual-trigger input on
+  Actions and an env var locally. This replaces a dry-run mode.
 - **Operator digest.** Immediate email on any user failure or a
   "sources thin" flag. Otherwise a Monday summary: users, sends, quiet
   days, median fit per user, source attribution.
@@ -264,10 +270,11 @@ Engine repo, public:
 - This design doc, minus anything deployment-specific.
 - How each component behaves: the daily run, the flows, the sources model,
   the sheet layout, Runs tab semantics, the heartbeat rule.
-- How to add a fetcher, change the prompt, run locally against one user.
-- Generic setup: create a service account with the Sheets and Drive APIs
-  enabled, create a web-application OAuth client, verify a domain in SES.
-  Steps, never the operator's values.
+- The README's Setup, Running, Debugging one stage, Adding a fetcher and
+  Changing the prompt sections: generic setup (a service account with the
+  Sheets and Drive APIs enabled, a web-application OAuth client, a domain
+  verified in SES), the `run` command and its environment, and what a
+  stage subcommand under `out/` is for. Steps, never the operator's values.
 
 Ops repo, private, in this order because the reader arrives from a failure
 email:

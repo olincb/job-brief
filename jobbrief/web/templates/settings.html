@@ -29,7 +29,8 @@ any of these is shown to the model. An empty list means no brief.</span>
 </fieldset>
 
 <label for="max_picks">Picks per brief</label>
-<input type="number" id="max_picks" name="max_picks" min="1" value="{{ settings.max_picks }}">
+<input type="number" id="max_picks" name="max_picks" min="1" value="{{ settings.max_picks }}"
+       placeholder="Default {{ max_picks_default }}">
 
 <fieldset>
 <legend>Pause</legend>

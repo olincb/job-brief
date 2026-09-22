@@ -3,7 +3,7 @@ import json
 import pytest
 
 from jobbrief import llm
-from jobbrief.llm import generate
+from jobbrief.llm import ModelError, generate
 from jobbrief.rank import build_prompt, finish
 
 
@@ -19,11 +19,19 @@ def test_finish_builds_rows_and_drops_invented_ids(capsys):
         {"id": "gh:b:2", "company": "B", "title": "Engineer", "location": "Remote", "url": "https://example.com/2"},
     ]
     result = {"picks": [{"id": "gh:b:2", "fit": 4, "reason": "why", "risk": ""}, {"id": "gh:z:9", "fit": 5}], "brief_markdown": "## Picks"}
-    markdown, postings_rows, seen_rows = finish(result, candidates, "2026-09-07")
+    markdown, postings_rows, seen_rows, _ = finish(result, candidates, "2026-09-07")
     assert markdown == "## Picks"
     assert postings_rows == [["2026-09-07", "B", "Engineer", "Remote", "https://example.com/2", 4, "why", "", "", ""]]
     assert seen_rows == [["2026-09-07", "gh:a:1", "https://example.com/1"], ["2026-09-07", "gh:b:2", "https://example.com/2"]]
     assert "invented id gh:z:9" in capsys.readouterr().err
+
+
+def test_finish_counts_picks_per_source_by_count_then_name():
+    picks_per_source = {"lever": 3, "hackernews": 3, "greenhouse": 1}
+    candidates = [{"id": f"{ats}:co:{n}", "company": "A", "title": "Engineer", "location": "Remote", "url": f"https://example.com/{ats}/{n}"}
+                  for ats, count in picks_per_source.items() for n in range(count)]
+    result = {"picks": [{"id": c["id"]} for c in candidates], "brief_markdown": "## Picks"}
+    assert finish(result, candidates, "2026-09-07")[3] == "hackernews:3 lever:3 greenhouse:1"
 
 
 def fake_gemini(monkeypatch, answers):
@@ -56,5 +64,5 @@ def test_generate_prose_leaves_the_response_type_open(monkeypatch):
 
 def test_generate_fails_when_every_model_is_exhausted(monkeypatch):
     fake_gemini(monkeypatch, {"primary": None, "fallback": None})
-    with pytest.raises(SystemExit):
+    with pytest.raises(ModelError):
         generate("hello", ["primary", "fallback"], "key", 2)

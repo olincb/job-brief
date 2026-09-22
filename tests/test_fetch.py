@@ -1,9 +1,10 @@
 import argparse
 import json
+from datetime import datetime, timedelta, timezone
 
 from jobbrief import cli, sources
 from jobbrief.sheet import SEEN_HEADER
-from jobbrief.sources import fetch_greenhouse, posting, select_candidates
+from jobbrief.sources import CANDIDATE_CAP, fetch_greenhouse, posting, select_candidates
 
 GRADLE_URL = "https://boards-api.greenhouse.io/v1/boards/gradle/jobs?content=true"
 
@@ -45,13 +46,31 @@ def titles(candidates):
     return [c["title"] for c in candidates]
 
 
+def dated_pool(count):
+    """`count` matching postings a minute apart, newest first."""
+    now = datetime.now(timezone.utc)
+    return [posting("fake", "board", n, "Backend Engineer", "Remote", f"https://example.com/jobs/{n}",
+                    (now - timedelta(minutes=n)).isoformat(), "short description")
+            for n in range(count)]
+
+
 def test_title_filters_keep_good_titles_and_drop_bad():
-    assert titles(select_candidates(pool(), set(), INCLUDE, EXCLUDE, 3)) == GOOD_TITLES
+    assert titles(select_candidates(pool(), set(), INCLUDE, EXCLUDE, 3)[0]) == GOOD_TITLES
 
 
 def test_postings_already_seen_are_dropped():
     seen = {"https://example.com/jobs/0"}
-    assert titles(select_candidates(pool(), seen, INCLUDE, EXCLUDE, 3)) == GOOD_TITLES[1:]
+    assert titles(select_candidates(pool(), seen, INCLUDE, EXCLUDE, 3)[0]) == GOOD_TITLES[1:]
+
+
+def test_over_the_cap_keeps_the_newest():
+    candidates, _ = select_candidates(dated_pool(200), set(), INCLUDE, EXCLUDE, 3)
+    assert [c["id"] for c in candidates] == [f"fake:board:{n}" for n in range(CANDIDATE_CAP)]
+
+
+def test_capped_is_reported_only_when_the_cap_bites():
+    assert select_candidates(dated_pool(200), set(), INCLUDE, EXCLUDE, 3)[1] is True
+    assert select_candidates(dated_pool(10), set(), INCLUDE, EXCLUDE, 3)[1] is False
 
 
 def test_fetch_command_writes_candidates_for_the_given_filters(out, monkeypatch):
@@ -62,4 +81,5 @@ def test_fetch_command_writes_candidates_for_the_given_filters(out, monkeypatch)
     (out / "seen.json").write_text(json.dumps({"values": [SEEN_HEADER, *seen]}))
     cli.cmd_fetch(argparse.Namespace(out=out, sources=str(sources_file), seen="", title_filter=INCLUDE, title_exclude=EXCLUDE, lookback_days=3))
     assert titles(json.loads((out / "candidates.json").read_text())) == GOOD_TITLES[1:]
-    assert json.loads((out / "fetch_stats.json").read_text())["new_candidates"] == 1
+    stats = json.loads((out / "fetch_stats.json").read_text())
+    assert (stats["new_candidates"], stats["capped"]) == (1, False)
