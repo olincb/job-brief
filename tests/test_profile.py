@@ -7,6 +7,7 @@ import pytest
 
 from jobbrief import llm
 from jobbrief.profile import build_prompt, docx_text, draft_profile, title_filters
+from jobbrief.sheet import MAX_PICKS_DEFAULT
 
 
 # An invented Answers row: the columns the form writes, with several left blank.
@@ -64,7 +65,7 @@ def test_draft_profile_attaches_a_pdf_resume_and_returns_the_settings(monkeypatc
     assert profile == "## Summary\n\nA water person."
     assert settings["title_filter"].splitlines()[0] == "water quality analyst"
     assert settings["title_exclude"].splitlines() == ["sales"]
-    assert settings["max_picks"] == 10
+    assert settings["max_picks"] == MAX_PICKS_DEFAULT
 
 
 def test_a_resume_that_is_neither_a_pdf_nor_a_docx_is_refused():

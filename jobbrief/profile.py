@@ -9,7 +9,7 @@ from importlib.resources import files
 from xml.etree import ElementTree
 
 from jobbrief.llm import generate
-from jobbrief.sheet import ANSWERS_HEADER
+from jobbrief.sheet import ANSWERS_HEADER, LOOKBACK_DAYS_DEFAULT, MAX_PICKS_DEFAULT
 
 
 DATA = files("jobbrief.data")
@@ -19,10 +19,6 @@ DATA = files("jobbrief.data")
 ASKED = [column for column in ANSWERS_HEADER if column not in ("resume", "submitted")]
 
 WORD_XML = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
-
-# The rest of Settings at signup; the user changes both in settings later.
-LOOKBACK_DAYS = 3
-MAX_PICKS = 10
 
 
 def docx_text(data):
@@ -87,6 +83,6 @@ def draft_profile(answers, models, api_key, retries, resume=None):
     return profile, {
         "title_filter": "\n".join(title_filter),
         "title_exclude": "\n".join(title_exclude),
-        "lookback_days": LOOKBACK_DAYS,
-        "max_picks": MAX_PICKS,
+        "lookback_days": LOOKBACK_DAYS_DEFAULT,
+        "max_picks": MAX_PICKS_DEFAULT,
     }

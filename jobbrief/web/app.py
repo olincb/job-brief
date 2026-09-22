@@ -194,7 +194,8 @@ def create_app():
                                profile=sheet.read_cell(token, sheet_id, "Profile!A1"), settings=values,
                                frequency=row.get("frequency", ""),
                                paused=row.get("active", "").strip().lower() != "yes",
-                               runs=runs, run_columns=sheet.RUNS_HEADER)
+                               runs=runs, run_columns=sheet.RUNS_HEADER,
+                               max_picks_default=sheet.MAX_PICKS_DEFAULT)
 
     @app.post("/settings")
     def save():

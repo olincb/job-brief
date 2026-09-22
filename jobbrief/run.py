@@ -12,8 +12,8 @@ from jobbrief.llm import MODELS, RETRIES, generate, parse_model_json
 from jobbrief.rank import build_prompt, finish
 from jobbrief.registry import users_to_run
 from jobbrief.render import heartbeat_html, render
-from jobbrief.sheet import (RUNS_HEADER, append_rows, days_since_email, read_cell, read_tab,
-                            service_account_token)
+from jobbrief.sheet import (LOOKBACK_DAYS_DEFAULT, MAX_PICKS_DEFAULT, RUNS_HEADER, append_rows,
+                            days_since_email, read_cell, read_tab, service_account_token)
 from jobbrief.sources import FETCHERS, SKIPPED, enrich, select_candidates
 
 
@@ -61,11 +61,11 @@ def run_user(token, user, pool, api_key, today):
     pipeline = read_tab(token, sheet_id, "Postings")
     candidates, capped = select_candidates(
         pool, seen, title_filter, settings["title_exclude"].splitlines(),
-        lookback(int(settings["lookback_days"]), runs_rows, today))
+        lookback(int(settings.get("lookback_days") or LOOKBACK_DAYS_DEFAULT), runs_rows, today))
     # Enrich a copy: the pool is shared, so enriching in place would re-fetch it for the next user.
     candidates = enrich([dict(job) for job in candidates])
     prompt = build_prompt(DATA.joinpath("prompt.md").read_text(), read_cell(token, sheet_id, "Profile!A1"),
-                          pipeline, candidates, int(settings["max_picks"]))
+                          pipeline, candidates, int(settings.get("max_picks") or MAX_PICKS_DEFAULT))
     text, model, usage = generate(prompt, MODELS, api_key, RETRIES, json_output=True)
     brief_markdown, postings_rows, seen_rows, sources = finish(parse_model_json(text), candidates, str(today))
     counts = dict(candidates=len(candidates), picks=len(postings_rows), model=model,

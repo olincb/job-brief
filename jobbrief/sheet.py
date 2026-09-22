@@ -24,6 +24,9 @@ ANSWERS_HEADER = ["field", "experience", "resume", "tools", "certifications", "w
 # and active live in the registry, not here, so the run can skip a non-send day without
 # opening the sheet.
 SETTINGS_HEADER = ["key", "value"]
+# What the two numbers are worth when the cell is blank, which is also what signup writes.
+MAX_PICKS_DEFAULT = 15
+LOOKBACK_DAYS_DEFAULT = 7
 POSTINGS_HEADER = ["date_seen", "company", "title", "location", "url", "fit", "reason", "risk", "status", "notes"]
 SEEN_HEADER = ["date_seen", "id", "url"]
 # Runs is the health log: one row per run. The heartbeat reads it to decide whether

@@ -1,11 +1,11 @@
 import json
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
 from jobbrief import mail, run
 from jobbrief.run import is_send_day, lookback
-from jobbrief.sheet import RUNS_HEADER
+from jobbrief.sheet import LOOKBACK_DAYS_DEFAULT, MAX_PICKS_DEFAULT, RUNS_HEADER
 from jobbrief.sources import SKIPPED, posting
 
 MONDAY = date(2026, 3, 2)
@@ -92,7 +92,7 @@ def drive(monkeypatch, users, tabs, picks=0, unreadable=()):
         return [dict(row) for row in rows.get((sheet_id, tab), [])]
 
     def generate(prompt, models, api_key, retries, json_output=False):
-        events.append(("generate", "", ""))
+        events.append(("generate", prompt, ""))
         chosen = [{"id": job["id"], "fit": 4, "reason": "why"} for job in POOL[:picks]]
         return json.dumps({"picks": chosen, "brief_markdown": "## Picks"}), "model-x", {"totalTokenCount": 12}
 
@@ -169,6 +169,18 @@ def test_no_picks_says_hello_once_the_silence_is_long_enough(monkeypatch, quiet_
     assert run.run(ENV, FRIDAY) == 0
     assert logged_run(events, "sheet-a")["outcome"] == outcome
     assert recipients(events) == (["a@example.com"] if outcome == "heartbeat" else [])
+
+
+def test_blank_numbers_run_on_the_defaults(monkeypatch):
+    blank = [dict(row, value="") if row["key"] in ("max_picks", "lookback_days") else row for row in SETTINGS]
+    events = drive(monkeypatch, [USER_A], {("sheet-a", "Settings"): blank}, picks=1)
+    posted = datetime.now(timezone.utc) - timedelta(days=LOOKBACK_DAYS_DEFAULT - 1)
+    within_the_default_lookback = posting("fake", "board", 9, "Backend Engineer", "Remote",
+                                              "https://example.com/jobs/9", posted.isoformat(), SNIPPET)
+    monkeypatch.setattr(run, "FETCHERS", {"hackernews": lambda slug: iter([within_the_default_lookback])})
+    assert run.run(ENV, FRIDAY) == 0
+    assert logged_run(events, "sheet-a")["candidates"] == 1
+    assert f"Maximum picks: {MAX_PICKS_DEFAULT}" in next(event[1] for event in events if event[0] == "generate")
 
 
 def test_every_user_failing_makes_the_run_itself_red(monkeypatch):
