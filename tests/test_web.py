@@ -5,7 +5,7 @@ from datetime import datetime
 
 import pytest
 
-from jobbrief import mail, profile, registry, sheet
+from jobbrief import llm, mail, profile, registry, sheet
 from jobbrief.sheet import ANSWERS_HEADER, RUNS_HEADER
 from jobbrief.web import app as web, oauth
 from jobbrief.web.app import create_app
@@ -271,7 +271,7 @@ def test_a_model_failure_ends_signup_before_anything_is_created(client, monkeypa
     sign_in(client, monkeypatch)
 
     def refuse(*args, **kwargs):
-        raise SystemExit("all 8 attempts failed")
+        raise llm.ModelError("all 8 attempts failed")
 
     response = submit(client, monkeypatch, refuse)
     assert response.status_code == 200

@@ -234,7 +234,7 @@ def create_app():
         try:
             profile_text, settings = profile.draft_profile(answers, llm.MODELS, os.environ["GEMINI_API_KEY"],
                                                            llm.RETRIES, resume=resume)
-        except (SystemExit, ValueError) as failure:
+        except (llm.ModelError, ValueError) as failure:
             print(f"signup could not draft a profile: {failure}")
             notice = ("That resume is not a PDF or a .docx." if isinstance(failure, ValueError)
                       else "The model could not draft a profile just now.")

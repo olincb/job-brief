@@ -3,7 +3,7 @@ import json
 import pytest
 
 from jobbrief import llm
-from jobbrief.llm import generate
+from jobbrief.llm import ModelError, generate
 from jobbrief.rank import build_prompt, finish
 
 
@@ -64,5 +64,5 @@ def test_generate_prose_leaves_the_response_type_open(monkeypatch):
 
 def test_generate_fails_when_every_model_is_exhausted(monkeypatch):
     fake_gemini(monkeypatch, {"primary": None, "fallback": None})
-    with pytest.raises(SystemExit):
+    with pytest.raises(ModelError):
         generate("hello", ["primary", "fallback"], "key", 2)

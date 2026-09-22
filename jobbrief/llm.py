@@ -20,6 +20,11 @@ RETRIES = 8
 RETRYABLE = (429, 500, 503)
 
 
+class ModelError(Exception):
+    """A request the model will not serve: a refused call, an exhausted retry budget, or an
+    answer with no JSON in it."""
+
+
 def call_gemini(model, body, api_key, attempts):
     """Try one model up to `attempts` times. Returns the parsed response, or None when
     every attempt hit a retryable failure. Non-retryable errors exit immediately.
@@ -37,7 +42,7 @@ def call_gemini(model, body, api_key, attempts):
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode(errors="replace")[:300]
             if exc.code not in RETRYABLE:
-                raise SystemExit(f"{model}: HTTP {exc.code}: {detail}")
+                raise ModelError(f"{model}: HTTP {exc.code}: {detail}")
             problem = f"HTTP {exc.code}: {detail}"
         except (urllib.error.URLError, http.client.HTTPException, OSError) as exc:
             problem = f"unreachable: {exc}"
@@ -71,12 +76,12 @@ def generate(prompt, models, api_key, retries, json_output=False, pdf=None):
         if data:
             text = "".join(part.get("text", "") for part in data["candidates"][0]["content"]["parts"])
             return text, model, data.get("usageMetadata", {})
-    raise SystemExit(f"all {retries} attempts failed across {', '.join(models)}")
+    raise ModelError(f"all {retries} attempts failed across {', '.join(models)}")
 
 
 def parse_model_json(raw):
     """Tolerate a fenced block or stray prose around the object."""
     start, end = raw.find("{"), raw.rfind("}")
     if start == -1 or end == -1:
-        raise SystemExit(f"model output had no JSON object:\n{raw[:500]}")
+        raise ModelError(f"model output had no JSON object:\n{raw[:500]}")
     return json.loads(raw[start:end + 1])

@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 from importlib.resources import files
 from pathlib import Path
 
-from jobbrief.llm import MODELS, RETRIES, generate, parse_model_json
+from jobbrief.llm import MODELS, RETRIES, ModelError, generate, parse_model_json
 from jobbrief.rank import build_prompt, finish
 from jobbrief.render import heartbeat_html, render
 from jobbrief.run import HEARTBEAT_DAYS, run
@@ -178,7 +178,10 @@ def main():
     args = parser.parse_args()
     if hasattr(args, "out"):
         args.out.mkdir(parents=True, exist_ok=True)
-    args.func(args)
+    try:
+        args.func(args)
+    except ModelError as exc:  # a stage the model would not serve ends with the message and a red exit
+        sys.exit(str(exc))
 
 
 if __name__ == "__main__":

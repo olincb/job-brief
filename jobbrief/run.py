@@ -112,7 +112,7 @@ def run(env, today):
             append_rows(token, sheet_id, "Runs", [row])
             logged = dict(zip(RUNS_HEADER, row))
             print(f"{sheet_id}: {logged['outcome']}, {logged['candidates']} candidates, {logged['picks']} picks")
-        except (Exception, SystemExit) as exc:  # a dead end in llm.py is a SystemExit, and one user's is not the run's
+        except Exception as exc:
             failed += 1
             print(f"{sheet_id}: {type(exc).__name__}", file=sys.stderr)
             notice = mail.operator_failure_notice(sheet_id, str(exc))
@@ -121,6 +121,6 @@ def run(env, today):
                 mail.send(operator, "Job brief: a run failed", f"<pre>{notice}</pre>", notice)
                 mail.send(user["email"], "Job brief: today's run did not finish",
                           f"<p>{mail.USER_FAILURE_NOTICE}</p>", mail.USER_FAILURE_NOTICE)
-            except (Exception, SystemExit) as unreported:
+            except Exception as unreported:
                 print(f"{sheet_id}: the failure went unreported, {type(unreported).__name__}", file=sys.stderr)
     return 1 if users and failed == len(users) else 0

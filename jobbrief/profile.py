@@ -70,7 +70,7 @@ def build_prompt(template, answers, resume_text=""):
 def draft_profile(answers, models, api_key, retries, resume=None):
     """One signup's Profile text and the Settings values to write beside it, from an Answers
     row and an optional resume as `(filename, bytes)`. Raises ValueError for a resume that is
-    neither a PDF nor a .docx, and `generate` raises SystemExit when every model attempt
+    neither a PDF nor a .docx, and `generate` raises ModelError when every model attempt
     fails; both leave signup with nothing written."""
     pdf, resume_text = None, ""
     if resume:
