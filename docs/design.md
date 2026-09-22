@@ -230,7 +230,7 @@ because every recipient is known personally.
 
 ## Operations
 
-- **Schedule.** GitHub Actions cron at 22:00 UTC. Every UTC time from
+- **Schedule.** GitHub Actions cron at 21:14 UTC, off the top of the hour, the slot GitHub most often runs late. Every UTC time from
   08:00 to 23:59 shares its calendar date with all continental US zones,
   so dates are stamped in UTC everywhere and there is no timezone
   configuration. A Fly Machine with `schedule = "daily"` was the
@@ -298,7 +298,7 @@ email:
    dispatch.
 6. Costs: what runs each bill and where to see it. Gemini in the Cloud
    console, SES in AWS, Fly's dashboard, Actions minutes.
-7. Deployment-specific decisions, such as the 22:00 UTC schedule and the
+7. Deployment-specific decisions, such as the 21:14 UTC schedule and the
    AWS region, with a link back to this document for the rest.
 
 ## Working with agents
