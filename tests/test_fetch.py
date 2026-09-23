@@ -39,16 +39,15 @@ def test_greenhouse_fetcher_yields_recorded_postings(monkeypatch, fixture_dir):
     assert "<" not in first["snippet"]
 
 
-@pytest.mark.parametrize("fetch, slug, url", [
+@pytest.mark.parametrize("fetch, board, url", [
     (fetch_greenhouse, "gradle", GRADLE_URL),
     (fetch_neogov, "whatcomcounty", WHATCOM_URL),
     (fetch_wordpress, IDAHO, wordpress_url(IDAHO)),
-    (fetch_wordpress, WCA, wordpress_url(WCA)),
     (fetch_weworkremotely, "remote-programming-jobs", WWR_URL),
 ])
-def test_unreachable_board_is_skipped_not_fatal(monkeypatch, fetch, slug, url):
+def test_unreachable_board_is_skipped_not_fatal(monkeypatch, fetch, board, url):
     serve(monkeypatch, {url: None})  # what get returns after its retries fail
-    assert list(fetch(slug)) == []
+    assert list(fetch(board)) == []
 
 
 def test_every_shared_source_has_a_fetcher():
@@ -129,12 +128,17 @@ def test_wordpress_fetcher_yields_recorded_water_jobs_postings(monkeypatch, fixt
     assert "&#" not in jobs[escaped]["snippet"]
 
 
+@pytest.mark.parametrize("board, url", [
+    (IDAHO, "https://joshswaterjobs.com/wp-json/wp/v2/jwj_job?search=Idaho&per_page=20&orderby=date&order=desc"
+            "&_fields=id%2Ctitle%2Clink%2Cdate_gmt%2Ccontent"),
+    (WCA, "https://waconservationaction.org/wp-json/wp/v2/job?per_page=20&orderby=date&order=desc"
+          "&_fields=id%2Ctitle%2Clink%2Cdate_gmt%2Ccontent"),
+])
+def test_wordpress_entry_becomes_its_rest_url(board, url):
+    assert wordpress_url(board) == url
 
-def test_wordpress_entry_without_a_search_term_reads_the_whole_board():
-    assert wordpress_url(WCA) == ("https://waconservationaction.org/wp-json/wp/v2/job?per_page=20&orderby=date"
-                                  "&order=desc&_fields=id%2Ctitle%2Clink%2Cdate_gmt%2Ccontent")
 
-def test_weworkremotely_fetcher_splits_company_from_title(monkeypatch, fixture_dir):
+def test_weworkremotely_fetcher_yields_recorded_postings(monkeypatch, fixture_dir):
     serve(monkeypatch, {WWR_URL: (fixture_dir / "weworkremotely" / "remote-programming-jobs.xml").read_text()})
     jobs = list(fetch_weworkremotely("remote-programming-jobs"))
     assert len(jobs) == 25
@@ -175,11 +179,12 @@ def titles(candidates):
     return [c["title"] for c in candidates]
 
 
-def dated_pool(count, boards=("a", "b", "c", "d"), start=0):
-    """`count` matching postings a minute apart, newest first, dealt across `boards`."""
+def dated_pool(count, boards=None, start=0):
+    """`count` matching postings a minute apart, newest first, dealt across `boards` or
+    each on its own board."""
     now = datetime.now(timezone.utc)
-    return [posting("fake", boards[n % len(boards)], n, "Backend Engineer", "Remote", f"https://example.com/jobs/{n}",
-                    (now - timedelta(minutes=n)).isoformat(), "short description")
+    return [posting("fake", boards[n % len(boards)] if boards else str(n), n, "Backend Engineer", "Remote",
+                    f"https://example.com/jobs/{n}", (now - timedelta(minutes=n)).isoformat(), "short description")
             for n in range(start, start + count)]
 
 
@@ -194,13 +199,15 @@ def test_postings_already_seen_are_dropped():
 
 def test_over_the_cap_keeps_the_newest():
     candidates, _ = select_candidates(dated_pool(200), set(), INCLUDE, EXCLUDE, 3)
-    assert [c["id"] for c in candidates] == [f"fake:{'abcd'[n % 4]}:{n}" for n in range(CANDIDATE_CAP)]
+    assert [c["id"] for c in candidates] == [f"fake:{n}:{n}" for n in range(CANDIDATE_CAP)]
 
 
 def test_one_board_over_the_cap_keeps_its_share_and_every_other_board():
-    big, rest = dated_pool(200, ["big"]), dated_pool(100, ["a", "b", "c", "d"], start=200)
+    pool = dated_pool(200, ["big", "a", "big", "b", "big", "c", "big", "d"])
+    big = [job for job in pool if job["company"] == "big"]
+    rest = [job for job in pool if job["company"] != "big"]
     candidates, _ = select_candidates(big + rest, set(), INCLUDE, EXCLUDE, 3)
-    assert [c["id"] for c in candidates] == [c["id"] for c in big[:BOARD_SHARE] + rest]
+    assert [c["id"] for c in candidates] == [job["id"] for job in pool if job not in big[BOARD_SHARE:]]
 
 
 def test_the_share_gives_way_when_other_boards_cannot_fill_the_cap():
@@ -209,7 +216,7 @@ def test_the_share_gives_way_when_other_boards_cannot_fill_the_cap():
     assert [c["id"] for c in candidates] == [c["id"] for c in big[:130] + rest] and capped
 
 
-def test_one_board_under_the_cap_is_not_limited():
+def test_one_board_at_the_cap_is_not_limited():
     assert len(select_candidates(dated_pool(CANDIDATE_CAP, ["big"]), set(), INCLUDE, EXCLUDE, 3)[0]) == CANDIDATE_CAP
 
 
