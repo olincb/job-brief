@@ -66,6 +66,6 @@ Verify command: `python -m pytest`. Runs with no network; see `tests/README.md`.
 - `test_mail.py` — the message builder's headers and multipart order, and the failure notices, without opening an SMTP connection.
 - `test_fetch.py` — Greenhouse and NEOGOV fetchers against their recordings, an unreachable board or agency skipped, title filters, Seen dedup, and the cap keeping the newest and flagging itself.
 - `fixtures/greenhouse/gradle.json` — one Greenhouse board response, saved unmodified.
-- `fixtures/neogov/whatcomcounty.json` — one NEOGOV agency response, saved unmodified.
+- `fixtures/neogov/whatcomcounty.json` — one NEOGOV agency response, saved unmodified but for its map key.
 - `fixtures/posting.txt` — one posting as `condense` receives it.
 - `fixtures/brief.md` — a hand-written sample brief with invented companies.

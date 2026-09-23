@@ -16,8 +16,8 @@ from jobbrief.sources import condense, get, strip_html
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
-# Boards saved unmodified as fixtures/<source>/<slug>.json, requested with the headers their
-# fetcher sends. Small boards keep them readable.
+# Boards saved as fixtures/<source>/<slug>.json, unmodified but for any mapTilerKey value,
+# requested with the headers their fetcher sends. Small boards keep them readable.
 BOARDS = [
     ("greenhouse", "gradle", "https://boards-api.greenhouse.io/v1/boards/gradle/jobs?content=true", None),
     ("neogov", "whatcomcounty", "https://www.governmentjobs.com/careers/home/loadJobsOnMaps?agency=whatcomcounty",
@@ -53,7 +53,8 @@ def main():
         body, data = fetch_json(url, headers)
         path = FIXTURES / source / f"{slug}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(body)
+        # NEOGOV ships a third-party map key to every browser; it is not ours to publish.
+        path.write_text(re.sub(r'"mapTilerKey":"[^"]*"', '"mapTilerKey":"REDACTED"', body))
         print(f"{path.relative_to(FIXTURES.parent)}: {len(data.get('jobs') or data.get('jobList') or [])} postings")
 
     _, data = fetch_json(POSTING_BOARD)

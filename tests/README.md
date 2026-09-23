@@ -12,7 +12,8 @@ bodies.
 
 ## Layout
 
-- `fixtures/<source>/<slug>.json`: a board's response saved unmodified.
+- `fixtures/<source>/<slug>.json`: a board's response saved unmodified, except that the
+  recorder replaces NEOGOV's third-party `mapTilerKey` with `REDACTED`.
 - `fixtures/posting.txt`: one posting as `condense` receives it, after HTML is
   stripped. It states years of experience, remote policy, and a pay range, the
   three lines condense must keep.
