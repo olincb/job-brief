@@ -333,7 +333,7 @@ def test_retake_prefills_the_form_and_rewrites_the_answers_without_touching_driv
     assert re.search(r'value="long drives"\s+checked', page)
     assert re.search(r'name="terms-1" value="no"\s+checked', page)  # on-call, as it was answered
 
-    redrawn = dict(SETTINGS, title_filter="hydrologist", lookback_days=9, max_picks=99)
+    redrawn = dict(SETTINGS, title_filter="hydrologist", vocabulary="GIS", lookback_days=9, max_picks=99)
     draft_profile, drafted = drafts("## Summary\n\nA redrafted person.", settings=redrawn)
     calls = fake_sheets(monkeypatch)
     response = submit(client, monkeypatch, draft_profile)
@@ -342,9 +342,9 @@ def test_retake_prefills_the_form_and_rewrites_the_answers_without_touching_driv
     written = value_writes(calls)
     assert written_to(written, "Answers!A2")[0][0] == FORM["field"]
     assert written_to(written, "Profile!A1") == [["## Summary\n\nA redrafted person."]]
-    # The filters are redrawn; the pick cap and lookback are the user's, not the model's.
+    # The filters and vocabulary are redrawn; the pick cap and lookback are the user's, not the model's.
     assert written_to(written, "Settings!A2") == [["title_filter", "hydrologist"], ["title_exclude", "sales"],
-                                                  ["lookback_days", "3"], ["max_picks", "10"]]
+                                                  ["lookback_days", "3"], ["max_picks", "10"], ["vocabulary", "GIS"]]
     # No second sheet, no second consent, and the run's history is untouched.
     assert not any(url.endswith("/spreadsheets") or "/permissions" in url for _, url, _, _ in calls)
     assert {where for where, _ in written} == {"Answers!A2", "Profile!A1", "Settings!A2"}
