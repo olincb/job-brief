@@ -378,7 +378,8 @@ def is_recent(iso, lookback_days):
 
 # More than this many condensed postings crowds out the profile and pipeline in the model request.
 CANDIDATE_CAP = 150
-# A board posting hundreds of matching titles a week would otherwise fill the cap by itself.
+# Over the cap one board keeps at most this many while other boards have postings to fill the
+# rest, so a board posting hundreds of matching titles a week cannot fill the cap by itself.
 BOARD_SHARE = CANDIDATE_CAP // 3
 
 
@@ -386,8 +387,8 @@ def select_candidates(postings, seen_urls, title_filter, title_exclude, lookback
     """One user's view of the pool as `(candidates, capped)`: unseen, recent, and passing
     their title filters. A title must match one filter pattern and no exclude pattern,
     case-insensitively. Overlapping sources can return the same posting, so the result is
-    keyed by id. Over the cap the newest are kept, at most `BOARD_SHARE` from one board,
-    the board being the id's first two fields."""
+    keyed by id. Over the cap the newest are kept, at most `BOARD_SHARE` from one board
+    until the other boards run out, the board being the id's first two fields."""
     title_ok = re.compile("|".join(title_filter or []) or ".", re.IGNORECASE)
     title_bad = re.compile("|".join(title_exclude or []) or "(?!)", re.IGNORECASE)
     candidates = {}
@@ -402,13 +403,13 @@ def select_candidates(postings, seen_urls, title_filter, title_exclude, lookback
     # ISO timestamps order correctly as strings, and a posting with no date sorts oldest.
     selected.sort(key=lambda job: job["posted_at"] or "", reverse=True)
     per_board = Counter()
-    kept = []
+    within_share, turned_away = [], []
     for job in selected:
         board = ":".join(job["id"].split(":", 2)[:2])
-        if per_board[board] < BOARD_SHARE:
-            per_board[board] += 1
-            kept.append(job)
-    return kept[:CANDIDATE_CAP], True
+        per_board[board] += 1
+        (within_share if per_board[board] <= BOARD_SHARE else turned_away).append(job)
+    kept = {job["id"] for job in (within_share + turned_away)[:CANDIDATE_CAP]}
+    return [job for job in selected if job["id"] in kept], True
 
 
 def enrich(candidates, vocabulary=None):

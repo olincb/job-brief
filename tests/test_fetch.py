@@ -198,9 +198,15 @@ def test_over_the_cap_keeps_the_newest():
 
 
 def test_one_board_over_the_cap_keeps_its_share_and_every_other_board():
-    big, rest = dated_pool(200, ["big"]), dated_pool(40, ["small", "other"], start=200)
+    big, rest = dated_pool(200, ["big"]), dated_pool(100, ["a", "b", "c", "d"], start=200)
     candidates, _ = select_candidates(big + rest, set(), INCLUDE, EXCLUDE, 3)
     assert [c["id"] for c in candidates] == [c["id"] for c in big[:BOARD_SHARE] + rest]
+
+
+def test_the_share_gives_way_when_other_boards_cannot_fill_the_cap():
+    big, rest = dated_pool(300, ["big"]), dated_pool(20, ["small"], start=300)
+    candidates, capped = select_candidates(big + rest, set(), INCLUDE, EXCLUDE, 3)
+    assert [c["id"] for c in candidates] == [c["id"] for c in big[:130] + rest] and capped
 
 
 def test_one_board_under_the_cap_is_not_limited():

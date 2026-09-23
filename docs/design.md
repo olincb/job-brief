@@ -183,8 +183,13 @@ Guardrails:
   field, so it stays a judgment the profile carries.
 - Candidates per user per run are capped at 150, the newest kept; hitting
   the cap is flagged as a filter that is too loose. Over the cap no one board
-  takes more than a third of it, so a board the size of Cloudflare's cannot
-  crowd out every other source.
+  takes more than a third of it while other boards have postings to fill the
+  rest, so a board the size of Cloudflare's cannot crowd out every other
+  source. A board is the posting id's first two segments
+  (`greenhouse:cloudflare`), so company boards on one ATS count separately,
+  feeds whose ids carry the company (RemoteOK, Himalayas, We Work Remotely,
+  Climatebase) count per company, and the Hacker News thread, Apple, and each
+  WordPress site count as one.
 
 Coverage is measured, not configured. Per user per run: candidate count,
 pick count, and which source each pick came from, all of which the run
