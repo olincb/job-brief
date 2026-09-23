@@ -21,10 +21,8 @@ ASKED = [column for column in ANSWERS_HEADER if column not in ("resume", "submit
 
 WORD_XML = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 
-# Question 4's name/level separator (a spaced dash, en dash, em dash, or pipe; a colon or
-# semicolon before whitespace; or whitespace before an opening bracket) and everything after
-# it; internal punctuation with no surrounding whitespace, as in "scikit-learn" or "Node.js",
-# stays part of the name.
+# Question 4's spaced separator and the level after it; punctuation inside a name, as in
+# "scikit-learn" or "Node.js", has no whitespace around it and stays.
 TOOL_LEVEL = re.compile(r"(?:\s[-–—|]\s|[:;]\s|\s[([]).*$")
 
 

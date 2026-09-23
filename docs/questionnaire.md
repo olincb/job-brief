@@ -42,7 +42,7 @@ pipeline setting it informs, and *shape:* the answer type.
    levels, go into the `vocabulary` setting, which keeps the posting lines
    that name them when a posting is cut to fit the prompt.
    *shape:* free list, one per line: the tool or skill, a dash, then how well
-   you know it &mdash; "python - daily use in job", "GIS - through
+   you know it — "python - daily use in job", "GIS - through
    coursework". The name is what postings are matched on. No preset list, so
    the answer is not biased toward any field.
 
