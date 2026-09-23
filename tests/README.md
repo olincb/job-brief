@@ -13,7 +13,8 @@ bodies.
 ## Layout
 
 - `fixtures/<source>/<slug>.json`: a board's response saved unmodified, except that the
-  recorder replaces NEOGOV's third-party `mapTilerKey` with `REDACTED`.
+  recorder replaces NEOGOV's third-party `mapTilerKey` with `REDACTED`. A WordPress
+  board's slug is the site's first DNS label, then a hyphen and its lowercased search term.
 - `fixtures/posting.txt`: one posting as `condense` receives it, after HTML is
   stripped. It states years of experience, remote policy, and a pay range, the
   three lines condense must keep.

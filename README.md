@@ -88,7 +88,8 @@ and its url in `SKIPPED`, so the generator yields nothing and the run continues.
 
 1. Write the generator in `sources.py` and register it in `FETCHERS` under a
    source name. That name is the first field of every posting id and the label in
-   the Runs row's picks-per-source count.
+   the Runs row's picks-per-source count, except that `fetch_wordpress` labels each
+   board with its site's first DNS label.
 2. Add what it is called with to `jobbrief/data/sources.base.json`: board slugs for
    a company ATS, search queries for a query source, one placeholder whose value
    is ignored for a whole feed. `find_boards.py` turns company names into

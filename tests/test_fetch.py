@@ -11,12 +11,14 @@ import pytest
 from jobbrief import cli, sources
 from jobbrief.sheet import SEEN_HEADER
 from jobbrief.sources import (
-    CANDIDATE_CAP, FETCHERS, enrich, fetch_greenhouse, fetch_joshswaterjobs, fetch_neogov, joshswaterjobs_url, posting,
-    select_candidates,
+    CANDIDATE_CAP, FETCHERS, enrich, fetch_greenhouse, fetch_neogov, fetch_wordpress, posting, select_candidates,
+    wordpress_url,
 )
 
 GRADLE_URL = "https://boards-api.greenhouse.io/v1/boards/gradle/jobs?content=true"
 WHATCOM_URL = "https://www.governmentjobs.com/careers/home/loadJobsOnMaps?agency=whatcomcounty"
+IDAHO = "joshswaterjobs.com/jwj_job?search=Idaho"
+WCA = "waconservationaction.org/job"
 
 
 def serve(monkeypatch, responses):
@@ -39,7 +41,8 @@ def test_greenhouse_fetcher_yields_recorded_postings(monkeypatch, fixture_dir):
 @pytest.mark.parametrize("fetch, slug, url", [
     (fetch_greenhouse, "gradle", GRADLE_URL),
     (fetch_neogov, "whatcomcounty", WHATCOM_URL),
-    (fetch_joshswaterjobs, "Idaho", joshswaterjobs_url("Idaho")),
+    (fetch_wordpress, IDAHO, wordpress_url(IDAHO)),
+    (fetch_wordpress, WCA, wordpress_url(WCA)),
 ])
 def test_unreachable_board_is_skipped_not_fatal(monkeypatch, fetch, slug, url):
     serve(monkeypatch, {url: None})  # what get returns after its retries fail
@@ -109,10 +112,10 @@ def test_neogov_posting_page_without_json_ld_keeps_the_list_snippet(monkeypatch)
     assert enrich([job])[0]["snippet"] == "snippet"
 
 
-def test_water_jobs_fetcher_yields_recorded_postings(monkeypatch, fixture_dir):
-    body = (fixture_dir / "joshswaterjobs" / "idaho.json").read_text()
-    serve(monkeypatch, {joshswaterjobs_url("Idaho"): body})
-    jobs = list(fetch_joshswaterjobs("Idaho"))
+def test_wordpress_fetcher_yields_recorded_water_jobs_postings(monkeypatch, fixture_dir):
+    body = (fixture_dir / "wordpress" / "joshswaterjobs-idaho.json").read_text()
+    serve(monkeypatch, {wordpress_url(IDAHO): body})
+    jobs = list(fetch_wordpress(IDAHO))
     recorded = json.loads(body)
     assert len(jobs) == len(recorded)
     first = jobs[0]
@@ -125,9 +128,10 @@ def test_water_jobs_fetcher_yields_recorded_postings(monkeypatch, fixture_dir):
 
 
 def test_two_terms_sharing_a_posting_collapse_to_one_id(monkeypatch, fixture_dir):
-    body = (fixture_dir / "joshswaterjobs" / "idaho.json").read_text()
-    serve(monkeypatch, {joshswaterjobs_url("Idaho"): body, joshswaterjobs_url("Oregon"): body})
-    pool = [*fetch_joshswaterjobs("Idaho"), *fetch_joshswaterjobs("Oregon")]
+    body = (fixture_dir / "wordpress" / "joshswaterjobs-idaho.json").read_text()
+    oregon = "joshswaterjobs.com/jwj_job?search=Oregon"
+    serve(monkeypatch, {wordpress_url(IDAHO): body, wordpress_url(oregon): body})
+    pool = [*fetch_wordpress(IDAHO), *fetch_wordpress(oregon)]
     ids = [job["id"] for job in select_candidates(pool, set(), [], [], 365 * 100)[0]]
     assert sorted(ids) == sorted({f"joshswaterjobs::{job['id']}" for job in json.loads(body)})
 

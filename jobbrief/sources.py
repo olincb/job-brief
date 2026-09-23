@@ -184,19 +184,23 @@ def fetch_neogov(agency):
         )
 
 
-def joshswaterjobs_url(term):
-    params = urllib.parse.urlencode({"search": term, "per_page": 20, "orderby": "date", "order": "desc",
-                                     "_fields": "id,title,link,date_gmt,content"})
-    return "https://joshswaterjobs.com/wp-json/wp/v2/jwj_job?" + params
+def wordpress_url(board):
+    """The REST URL for a `sources.base.json` wordpress entry, `site/post_type` with an
+    optional `?search=term`."""
+    board = urllib.parse.urlsplit("//" + board)
+    params = {**dict(urllib.parse.parse_qsl(board.query)), "per_page": 20, "orderby": "date", "order": "desc",
+              "_fields": "id,title,link,date_gmt,content"}
+    return f"https://{board.netloc}/wp-json/wp/v2{board.path}?" + urllib.parse.urlencode(params)
 
 
-def fetch_joshswaterjobs(term):
-    """The newest 20 Josh's Water Jobs postings matching one search term; the board posts
+def fetch_wordpress(board):
+    """The newest 20 posts of one job post type on a WordPress site, labelled with the
+    site's first DNS label so picks per source name the board. Josh's Water Jobs posts
     about fifty a day worldwide, so it is searched rather than read whole. Titles name no
     organization and location is free text in the body, so the description carries both."""
-    for job in get_json(joshswaterjobs_url(term)) or []:
+    for job in get_json(wordpress_url(board)) or []:
         yield posting(
-            "joshswaterjobs", "", job["id"], strip_html(job["title"]["rendered"]), "see posting",
+            board.split(".")[0], "", job["id"], strip_html(job["title"]["rendered"]), "see posting",
             job["link"], job["date_gmt"] + "+00:00", strip_html(job["content"]["rendered"]),
         )
 
@@ -329,11 +333,12 @@ def enrich_neogov(job):
 ENRICHERS = {"climatebase": enrich_climatebase, "apple": enrich_apple, "neogov": enrich_neogov}
 
 
-# Company-board fetchers take an ATS slug, neogov an agency slug. climatebase and joshswaterjobs take a search query.
-# hackernews, remoteok, himalayas, and apple are single feeds and ignore their value.
+# Company-board fetchers take an ATS slug, neogov an agency slug, climatebase a search query, and
+# wordpress a site and post type with an optional search term. hackernews, remoteok, himalayas,
+# and apple are single feeds and ignore their value.
 FETCHERS = {
     "greenhouse": fetch_greenhouse, "lever": fetch_lever, "ashby": fetch_ashby, "neogov": fetch_neogov,
-    "climatebase": fetch_climatebase, "joshswaterjobs": fetch_joshswaterjobs, "hackernews": fetch_hackernews,
+    "climatebase": fetch_climatebase, "wordpress": fetch_wordpress, "hackernews": fetch_hackernews,
     "remoteok": fetch_remoteok, "himalayas": fetch_himalayas, "apple": fetch_apple,
 }
 

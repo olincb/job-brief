@@ -128,9 +128,10 @@ app just made.
 ### Daily run
 
 1. Fetch every source once into a raw pool: company boards, NEOGOV agency
-   boards, Climatebase, Josh's Water Jobs, Hacker News, RemoteOK, Himalayas,
-   Apple, and whatever is added later. An empty pool with every source
-   skipped is the fetch failing, and no user is run on it.
+   boards, Climatebase, Josh's Water Jobs, Washington Conservation Action,
+   Hacker News, RemoteOK, Himalayas, Apple, and whatever is added later. An
+   empty pool with every source skipped is the fetch failing, and no user is
+   run on it.
 2. For each user in `Allowed` whose frequency makes today a send day: read their tabs,
    drop postings already in `Seen` or older than the lookback (stretched
    to cover the gap since their last send), apply their title filters,
@@ -205,7 +206,10 @@ and city governments post (governmentjobs.com, careers.wa.gov). Each agency
 is its own board, listed by slug in `sources.base.json` the way company
 boards are. Josh's Water Jobs is the water-sector board (utilities, water
 resources, wastewater, water quality), searched by term because it posts
-about fifty a day worldwide.
+about fifty a day worldwide. Washington Conservation Action's board carries
+the organization's own environmental advocacy openings. Both are WordPress
+sites, read through the WordPress REST API and listed in `sources.base.json`
+as site and post type, with a search term on a board too busy to read whole.
 
 ## Preferences: prose over schema
 
