@@ -127,8 +127,9 @@ app just made.
 
 ### Daily run
 
-1. Fetch every source once into a raw pool: company boards, Climatebase,
-   Hacker News, RemoteOK, Himalayas, Apple, and whatever is added later. An
+1. Fetch every source once into a raw pool: company boards, NEOGOV agency
+   boards, Climatebase, Josh's Water Jobs, Hacker News, RemoteOK, Himalayas,
+   Apple, and whatever is added later. An
    empty pool with every source skipped is the fetch failing, and no user is
    run on it.
 2. For each user in `Allowed` whose frequency makes today a send day: read their tabs,
@@ -201,8 +202,7 @@ conservation-district posting's "pesticide applicator certification" reaches
 the model for the user it matters to.
 
 Public-sector postings come from NEOGOV, where Washington state, county
-and city governments, WWU and conservation districts post
-(governmentjobs.com, careers.wa.gov). Each agency is its own board, listed
+and city governments post (governmentjobs.com, careers.wa.gov). Each agency is its own board, listed
 by slug in `sources.base.json` the way company boards are. Josh's Water
 Jobs is the water-sector board (utilities, water resources, wastewater,
 water quality), searched by term because it posts about fifty a day
@@ -214,8 +214,8 @@ The profile is prose and the model interprets it, including hard filters.
 This held up in the prototype: the one real ranking miss in early use was a
 gap in what the prose said, fixed by adding two paragraphs, not by adding a
 field. Structured fields stay only where Python does the job better
-and no judgment is involved: dedup, title filters, lookback, pick cap,
-frequency. A structured field is added only when a failure recurs and a
+and no judgment is involved: dedup, title filters, the condense vocabulary,
+lookback, pick cap, frequency. A structured field is added only when a failure recurs and a
 field would have prevented it.
 
 ## Email

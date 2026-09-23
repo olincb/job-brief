@@ -3,8 +3,9 @@
     python -m tests.record_fixtures
 
 The one place in the test tree that touches the network; the default test run never
-imports it for its side effects. Each board is one fetch saved raw, so the fetcher tests
-see exactly what the board returned. Sources are public job boards only.
+imports it for its side effects. Each board is one fetch saved as returned, except that
+NEOGOV's third-party map key is redacted, so the fetcher tests see what the board
+returned. Sources are public job boards only.
 """
 
 import json

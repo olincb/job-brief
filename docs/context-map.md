@@ -30,7 +30,7 @@ is added. The design and its reasons are in `design.md`; this is only a map.
 - `find_boards.py` — operator tool: turns company names into verified ATS slugs for `sources.base.json`.
 - `data/prompt.md` — instructions to the model: scoring rubric, brief layout, JSON contract.
 - `data/profile_prompt.md` — instructions to the model that drafts a profile: what to trust, what the Answers columns hold, and the profile's sections.
-- `data/sources.base.json` — shared board slugs per ATS, Climatebase queries, and the whole-feed sources everyone runs against.
+- `data/sources.base.json` — shared board slugs per ATS, NEOGOV agency slugs, Climatebase queries, Josh's Water Jobs search terms, and the whole-feed sources everyone runs against.
 
 ## `jobbrief/web/` — the web app
 
@@ -53,18 +53,18 @@ Verify command: `python -m pytest`. Runs with no network; see `tests/README.md`.
 
 - `README.md` — the fixture layout, the no-network guarantee, and how to re-record.
 - `conftest.py` — blocks `urlopen` for every test; `fixture_dir` and `out` fixtures.
-- `record_fixtures.py` — the deliberate network step: records boards raw and picks the condense posting.
-- `test_condense.py` — years, remote, and pay lines survive condensing; a vocabulary keeps a license line the default drops.
+- `record_fixtures.py` — the deliberate network step: records boards as returned, NEOGOV's map key redacted, and picks the condense posting.
+- `test_condense.py` — years, remote, and pay lines survive condensing; a vocabulary stands in for the stack tier: it keeps a license line and a C++ line, and drops a stack word it omits.
 - `test_render.py` — numbered picks stay one list across blank lines; links, bold, sheet footer.
 - `test_heartbeat.py` — the heartbeat rule over synthetic Runs rows.
 - `test_registry.py` — `users_to_run`: inactive rows dropped, a missing `Allowed` row stops and restarts a user, no filter returns all active, `ONLY_USERS` restricts case-insensitively.
 - `test_run.py` — each frequency on a send and a non-send day; the lookback stretched by a gap and defaulted with no email on record; and the loop over fake sheets: one user's failure leaves the next served, `ONLY_USERS`, a non-send day, an empty filter, the heartbeat either side of its threshold, the Settings vocabulary reaching the prompt, and every source skipped.
 - `test_sheet.py` — `init_sheet` lays the six tabs, adds missing ones, and writes every header but Profile; the editor, row and cell operations.
 - `test_web.py` — sign-in scopes, the gate (an allowed address, an unknown one, an `Allowed` row deleted under a live session), the invite email, state and verification refusals, sign-out, signup end to end (submit, the Drive callback's sheet and registry writes, a lost stash, a model failure), and settings: what the page shows, what a save writes, pause, retake, delete-me.
-- `test_profile.py` — the generator prompt from an invented `Answers` row, the title filters as typed, a Word resume to text, and the PDF attachment.
+- `test_profile.py` — the generator prompt from an invented `Answers` row, the title filters as typed, the vocabulary row, a Word resume to text, and the PDF attachment.
 - `test_rank.py` — prompt assembly, the retry budget across both models, the model's picks into sheet rows, and picks per source ordered by count then name.
 - `test_mail.py` — the message builder's headers and multipart order, and the failure notices, without opening an SMTP connection.
-- `test_fetch.py` — Greenhouse, NEOGOV and Josh's Water Jobs fetchers against their recordings, an unreachable board skipped, the NEOGOV enricher, one id for a posting two search terms find, title filters, Seen dedup, and the cap keeping the newest and flagging itself.
+- `test_fetch.py` — Greenhouse, NEOGOV and Josh's Water Jobs fetchers against their recordings, an unreachable board skipped, a transient failure retried once and a 404 not, every shared source having a fetcher, the NEOGOV enricher through `enrich`, one id for a posting two search terms find, title filters, Seen dedup, and the cap keeping the newest and flagging itself.
 - `fixtures/greenhouse/gradle.json` — one Greenhouse board response, saved unmodified.
 - `fixtures/neogov/whatcomcounty.json` — one NEOGOV agency response, saved unmodified but for its map key.
 - `fixtures/joshswaterjobs/idaho.json` — one Josh's Water Jobs search response, saved unmodified.
