@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 from jobbrief import cli, sources
 from jobbrief.sheet import SEEN_HEADER
-from jobbrief.sources import CANDIDATE_CAP, fetch_greenhouse, fetch_neogov, is_recent, posting, select_candidates
+from jobbrief.sources import CANDIDATE_CAP, enrich_neogov, fetch_greenhouse, fetch_neogov, is_recent, posting, select_candidates
 
 GRADLE_URL = "https://boards-api.greenhouse.io/v1/boards/gradle/jobs?content=true"
 WHATCOM_URL = "https://www.governmentjobs.com/careers/home/loadJobsOnMaps?agency=whatcomcounty"
@@ -57,6 +57,20 @@ def test_unreachable_agency_is_skipped_without_a_retry(monkeypatch):
     monkeypatch.setattr(sources, "SKIPPED", [])
     assert list(fetch_neogov("whatcomcounty")) == []
     assert calls == [(WHATCOM_URL, "XMLHttpRequest")] and sources.SKIPPED == [WHATCOM_URL]
+
+
+def test_neogov_enricher_swaps_the_excerpt_for_the_full_description(monkeypatch):
+    job = posting("neogov", "agency", 1, "Technician", "Bellingham, WA", "https://example.com/jobs/1", None,
+                  "Full-Time | $20.00 - $30.00 Hourly | Opening paragraph...")
+    page = '<script type="application/ld+json">{"@type": "JobPosting", "description": "&lt;p&gt;Opening paragraph.&lt;/p&gt;&lt;p&gt;Two years of field experience.&lt;/p&gt;"}</script>'
+    serve(monkeypatch, {job["url"]: page})
+    assert enrich_neogov(job) == "Full-Time | $20.00 - $30.00 Hourly | Opening paragraph.\nTwo years of field experience."
+
+
+def test_neogov_enricher_without_json_ld_returns_none(monkeypatch):
+    job = posting("neogov", "agency", 1, "Technician", "", "https://example.com/jobs/1", None, "snippet")
+    serve(monkeypatch, {job["url"]: "<html>no structured data</html>"})
+    assert enrich_neogov(job) is None
 
 
 GOOD_TITLES = ["Software Engineer, Platform", "Backend Engineer II"]
