@@ -16,9 +16,12 @@ from jobbrief.sources import condense, get, strip_html
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
-# Boards saved unmodified as fixtures/<source>/<slug>.json. Small boards keep them readable.
+# Boards saved unmodified as fixtures/<source>/<slug>.json, requested with the headers their
+# fetcher sends. Small boards keep them readable.
 BOARDS = [
-    ("greenhouse", "gradle", "https://boards-api.greenhouse.io/v1/boards/gradle/jobs?content=true"),
+    ("greenhouse", "gradle", "https://boards-api.greenhouse.io/v1/boards/gradle/jobs?content=true", None),
+    ("neogov", "whatcomcounty", "https://www.governmentjobs.com/careers/home/loadJobsOnMaps?agency=whatcomcounty",
+     {"X-Requested-With": "XMLHttpRequest"}),
 ]
 
 # One posting for the condense test, saved as the text condense receives. Taken from a
@@ -33,10 +36,10 @@ REQUIRED_LINES = {
 }
 
 
-def fetch_json(url):
+def fetch_json(url, headers=None):
     """Body text and parsed JSON, or exit. A proxy block page is HTML with a 200 or 403,
     and saving it would make a fixture that passes for the wrong reason."""
-    body = get(url)
+    body = get(url, headers=headers)
     if body is None:
         sys.exit(f"{url}: unreachable, nothing written")
     try:
@@ -46,12 +49,12 @@ def fetch_json(url):
 
 
 def main():
-    for source, slug, url in BOARDS:
-        body, data = fetch_json(url)
+    for source, slug, url, headers in BOARDS:
+        body, data = fetch_json(url, headers)
         path = FIXTURES / source / f"{slug}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(body)
-        print(f"{path.relative_to(FIXTURES.parent)}: {len(data['jobs'])} postings")
+        print(f"{path.relative_to(FIXTURES.parent)}: {len(data.get('jobs') or data.get('jobList') or [])} postings")
 
     _, data = fetch_json(POSTING_BOARD)
     for job in data["jobs"]:

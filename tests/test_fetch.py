@@ -1,18 +1,21 @@
 import argparse
 import json
+import urllib.error
+import urllib.request
 from datetime import datetime, timedelta, timezone
 
 from jobbrief import cli, sources
 from jobbrief.sheet import SEEN_HEADER
-from jobbrief.sources import CANDIDATE_CAP, fetch_greenhouse, posting, select_candidates
+from jobbrief.sources import CANDIDATE_CAP, fetch_greenhouse, fetch_neogov, is_recent, posting, select_candidates
 
 GRADLE_URL = "https://boards-api.greenhouse.io/v1/boards/gradle/jobs?content=true"
+WHATCOM_URL = "https://www.governmentjobs.com/careers/home/loadJobsOnMaps?agency=whatcomcounty"
 
 
 def serve(monkeypatch, responses):
     """Replace the engine's one network call with a lookup over recorded bodies. An
     unrecorded URL raises so a fetcher that changes its request fails visibly."""
-    monkeypatch.setattr(sources, "get", lambda url, attempts=2: responses[url])
+    monkeypatch.setattr(sources, "get", lambda url, attempts=2, headers=None: responses[url])
 
 
 def test_greenhouse_fetcher_yields_recorded_postings(monkeypatch, fixture_dir):
@@ -29,6 +32,31 @@ def test_greenhouse_fetcher_yields_recorded_postings(monkeypatch, fixture_dir):
 def test_unreachable_board_is_skipped_not_fatal(monkeypatch):
     serve(monkeypatch, {GRADLE_URL: None})  # what get returns after its retries fail
     assert list(fetch_greenhouse("gradle")) == []
+
+
+def test_neogov_fetcher_yields_recorded_postings(monkeypatch, fixture_dir):
+    body = (fixture_dir / "neogov" / "whatcomcounty.json").read_text()
+    serve(monkeypatch, {WHATCOM_URL: body})
+    jobs = list(fetch_neogov("whatcomcounty"))
+    assert len(jobs) == len(json.loads(body)["jobList"])
+    first = jobs[0]
+    job_id = first["id"].removeprefix("neogov:whatcomcounty:")
+    assert job_id and first["url"].startswith(f"https://www.governmentjobs.com/careers/whatcomcounty/jobs/{job_id}/")
+    assert first["title"] and first["location"] and first["snippet"]
+    assert is_recent(first["posted_at"], 365 * 100)
+
+
+def test_unreachable_agency_is_skipped_without_a_retry(monkeypatch):
+    calls = []
+
+    def not_found(req, timeout):
+        calls.append((req.full_url, req.get_header("X-requested-with")))
+        raise urllib.error.HTTPError(req.full_url, 404, "Not Found", None, None)
+
+    monkeypatch.setattr(urllib.request, "urlopen", not_found)
+    monkeypatch.setattr(sources, "SKIPPED", [])
+    assert list(fetch_neogov("whatcomcounty")) == []
+    assert calls == [(WHATCOM_URL, "XMLHttpRequest")] and sources.SKIPPED == [WHATCOM_URL]
 
 
 GOOD_TITLES = ["Software Engineer, Platform", "Backend Engineer II"]
