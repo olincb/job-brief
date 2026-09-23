@@ -25,7 +25,6 @@ BOARDS = [
     ("neogov", "whatcomcounty", "https://www.governmentjobs.com/careers/home/loadJobsOnMaps?agency=whatcomcounty",
      {"X-Requested-With": "XMLHttpRequest"}),
     ("wordpress", "joshswaterjobs-idaho", wordpress_url("joshswaterjobs.com/jwj_job?search=Idaho"), None),
-    ("wordpress", "waconservationaction", wordpress_url("waconservationaction.org/job"), None),
     ("weworkremotely", "remote-programming-jobs", "https://weworkremotely.com/categories/remote-programming-jobs.rss", None),
 ]
 

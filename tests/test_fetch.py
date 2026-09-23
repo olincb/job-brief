@@ -129,6 +129,11 @@ def test_wordpress_fetcher_yields_recorded_water_jobs_postings(monkeypatch, fixt
     assert "&#" not in jobs[escaped]["snippet"]
 
 
+
+def test_wordpress_entry_without_a_search_term_reads_the_whole_board():
+    assert wordpress_url(WCA) == ("https://waconservationaction.org/wp-json/wp/v2/job?per_page=20&orderby=date"
+                                  "&order=desc&_fields=id%2Ctitle%2Clink%2Cdate_gmt%2Ccontent")
+
 def test_weworkremotely_fetcher_splits_company_from_title(monkeypatch, fixture_dir):
     serve(monkeypatch, {WWR_URL: (fixture_dir / "weworkremotely" / "remote-programming-jobs.xml").read_text()})
     jobs = list(fetch_weworkremotely("remote-programming-jobs"))
