@@ -146,6 +146,11 @@ def test_weworkremotely_fetcher_splits_company_from_title(monkeypatch, fixture_d
     assert jobs[0]["snippet"].startswith("Headquarters: New York, NY") and "<" not in jobs[0]["snippet"]
 
 
+def test_weworkremotely_feed_that_is_not_xml_is_skipped(monkeypatch):
+    serve(monkeypatch, {WWR_URL: "<html>"})
+    assert list(fetch_weworkremotely("remote-programming-jobs")) == []
+
+
 def test_two_terms_sharing_a_posting_collapse_to_one_id(monkeypatch, fixture_dir):
     body = (fixture_dir / "wordpress" / "joshswaterjobs-idaho.json").read_text()
     oregon = "joshswaterjobs.com/jwj_job?search=Oregon"

@@ -254,15 +254,20 @@ def fetch_remoteok(_):
 def fetch_weworkremotely(category):
     """The newest postings in one We Work Remotely category's RSS feed, whose titles read
     "Company: Title"."""
-    feed = get(f"https://weworkremotely.com/categories/{category}.rss")
+    url = f"https://weworkremotely.com/categories/{category}.rss"
+    feed = get(url)
     if not feed:
         return
-    for item in ElementTree.fromstring(feed).iter("item"):
-        head, sep, tail = item.findtext("title").partition(": ")
-        company, title = (head, tail) if sep else ("", head)
+    try:
+        items = ElementTree.fromstring(feed).iter("item")
+    except ElementTree.ParseError as exc:
+        print(f"skip {url}: {exc}", file=sys.stderr)
+        return
+    for item in items:
+        company, _, title = item.findtext("title").partition(": ")
         link = item.findtext("link")
         yield posting(
-            "weworkremotely", company, item.findtext("guid") or link, title, item.findtext("region") or "Remote",
+            "weworkremotely", company, link, title, item.findtext("region"),
             link, email.utils.parsedate_to_datetime(item.findtext("pubDate")).isoformat(),
             strip_html(item.findtext("description")),
         )
