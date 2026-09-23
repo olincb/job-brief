@@ -15,6 +15,7 @@ def test_condense_keeps_years_remote_and_pay_lines(fixture_dir):
 # The vocabulary replaces the software stack tier, so a stack word it omits is dropped.
 @pytest.mark.parametrize("vocabulary, sentence, kept", [
     (["pesticide applicator", "driver's license"], "A valid driver's license and a pesticide applicator certification.", True),
+    (["driver's license"], "A valid Driver’s License is required.", True),
     (["C++"], "The pipeline code is written in C++ for speed.", True),
     (["GIS"], "The cluster runs on kubernetes in the county data center.", False),
 ])

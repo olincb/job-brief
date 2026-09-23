@@ -82,7 +82,9 @@ def condense(text, intro=300, limit=2400, vocabulary=None):
     tiers = SIGNAL_TIERS
     if vocabulary:
         # Lookarounds rather than \b so a term ending in a symbol, like C++, still matches.
-        terms = "|".join(rf"(?<!\w){re.escape(term)}(?!\w)" for term in vocabulary)
+        # Postings write the typographic apostrophe, so a straight one in a term must match either.
+        escaped = (re.escape(term).replace("'", "['’]") for term in vocabulary)
+        terms = "|".join(rf"(?<!\w){term}(?!\w)" for term in escaped)
         tiers = SIGNAL_TIERS[:-1] + [re.compile(terms, re.IGNORECASE)]
     sentences = [x.strip() for x in re.split(r"\n|(?<=[.!?])\s+", text[intro:]) if len(x.strip()) >= 20]
     ranked = []
