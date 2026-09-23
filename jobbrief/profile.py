@@ -21,9 +21,11 @@ ASKED = [column for column in ANSWERS_HEADER if column not in ("resume", "submit
 
 WORD_XML = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 
-# Question 4's job/class/heard-of mark and any aside after it ("python: job, mostly scripts");
-# the mark is a whole word, so "JobRunner" stays.
-TOOL_MARK = re.compile(r"[\s\W]+(?:job|class|heard of)\b.*$", re.IGNORECASE)
+# Question 4's name/level separator (a spaced dash, en dash, em dash, or pipe; a colon or
+# semicolon before whitespace; or whitespace before an opening bracket) and everything after
+# it; internal punctuation with no surrounding whitespace, as in "scikit-learn" or "Node.js",
+# stays part of the name.
+TOOL_LEVEL = re.compile(r"(?:\s[-–—|]\s|[:;]\s|\s[([]).*$")
 
 
 def docx_text(data):
@@ -86,7 +88,7 @@ def draft_profile(answers, models, api_key, retries, resume=None):
     profile, _model, _usage = generate(prompt, models, api_key, retries, pdf=pdf)
     title_filter, title_exclude = title_filters(answers)
     # A starred license is one the user would get, so a posting's line naming it matters too.
-    vocabulary = ([TOOL_MARK.sub("", phrase) for phrase in _phrases(answers.get("tools"))]
+    vocabulary = ([TOOL_LEVEL.sub("", phrase) for phrase in _phrases(answers.get("tools"))]
                   + [phrase.strip("* ") for phrase in _phrases(answers.get("certifications"))])
     return profile, {
         "title_filter": "\n".join(title_filter),

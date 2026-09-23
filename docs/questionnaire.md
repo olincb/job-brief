@@ -36,14 +36,15 @@ pipeline setting it informs, and *shape:* the answer type.
    *shape:* PDF or Word upload, optional, sent once to the model and not
    stored. The form says so under the upload.
 
-4. **Tools and skills you would claim.** For each, mark *job* (used at a
-   job), *class* (coursework or a project), or *heard of*.
-   *feeds:* realism; the model treats "job" and "class" differently. The
-   tools, without their marks, go into the `vocabulary` setting, which keeps
-   the posting lines that name them when a posting is cut to fit the prompt.
-   *shape:* free list, one per line: the tool or skill first, then the mark.
-   The name is what postings are matched on. No preset list, so the answer
-   is not biased toward any field.
+4. **Tools and skills you would claim.** For each, say how well you know it,
+   in your own words.
+   *feeds:* realism; the model reads the level. The tools, without their
+   levels, go into the `vocabulary` setting, which keeps the posting lines
+   that name them when a posting is cut to fit the prompt.
+   *shape:* free list, one per line: the tool or skill, a dash, then how well
+   you know it &mdash; "python - daily use in job", "GIS - through
+   coursework". The name is what postings are matched on. No preset list, so
+   the answer is not biased toward any field.
 
 5. **Licenses or certifications you hold.** Star any you do not have but
    would get quickly if a job wanted it.
@@ -196,7 +197,7 @@ these names and `init-sheet` lays them as the header row.
 | 1 | `field` | field or industry |
 | 2 | `experience` | years and most recent title |
 | 3 | `resume` | the uploaded filename, or blank; the bytes are never stored |
-| 4 | `tools` | tools and skills with their job/class/heard-of marks |
+| 4 | `tools` | tools and skills with a level after each |
 | 5 | `certifications` | licenses and certifications |
 | 6 | `work_types` | kinds of work, reordered |
 | 7 | `search_titles` | titles to search for (the title filter) |
