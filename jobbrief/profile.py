@@ -21,9 +21,8 @@ ASKED = [column for column in ANSWERS_HEADER if column not in ("resume", "submit
 
 WORD_XML = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 
-# Question 4's job/class/heard-of mark and anything after it, from the run of whitespace
-# or punctuation that precedes it to the end of the line, as in "GIS - job" or
-# "python: job, mostly scripts"; the mark itself is a whole word, so "JobRunner" is untouched.
+# Question 4's job/class/heard-of mark and any aside after it ("python: job, mostly scripts");
+# the mark is a whole word, so "JobRunner" stays.
 TOOL_MARK = re.compile(r"[\s\W]+(?:job|class|heard of)\b.*$", re.IGNORECASE)
 
 
