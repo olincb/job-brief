@@ -31,7 +31,6 @@ def get(url, attempts=2, headers=None):
                 print(f"skip {url}: {exc}", file=sys.stderr)
                 SKIPPED.append(url)
                 return None
-    return None
 
 
 def get_json(url, headers=None):
@@ -84,7 +83,7 @@ def condense(text, intro=300, limit=2400, vocabulary=None):
     if vocabulary:
         # Lookarounds rather than \b so a term ending in a symbol, like C++, still matches.
         terms = "|".join(rf"(?<!\w){re.escape(term)}(?!\w)" for term in vocabulary)
-        tiers = SIGNAL_TIERS[:2] + [re.compile(terms, re.IGNORECASE)]
+        tiers = SIGNAL_TIERS[:-1] + [re.compile(terms, re.IGNORECASE)]
     sentences = [x.strip() for x in re.split(r"\n|(?<=[.!?])\s+", text[intro:]) if len(x.strip()) >= 20]
     ranked = []
     for index, sentence in enumerate(sentences):
@@ -183,13 +182,17 @@ def fetch_neogov(agency):
         )
 
 
+def joshswaterjobs_url(term):
+    params = urllib.parse.urlencode({"search": term, "per_page": 20, "orderby": "date", "order": "desc",
+                                     "_fields": "id,title,link,date_gmt,content"})
+    return "https://joshswaterjobs.com/wp-json/wp/v2/jwj_job?" + params
+
+
 def fetch_joshswaterjobs(term):
     """The newest 20 Josh's Water Jobs postings matching one search term; the board posts
     about fifty a day worldwide, so it is searched rather than read whole. Titles name no
     organization and location is free text in the body, so the description carries both."""
-    params = urllib.parse.urlencode({"search": term, "per_page": 20, "orderby": "date", "order": "desc",
-                                     "_fields": "id,title,link,date_gmt,content"})
-    for job in get_json("https://joshswaterjobs.com/wp-json/wp/v2/jwj_job?" + params) or []:
+    for job in get_json(joshswaterjobs_url(term)) or []:
         yield posting(
             "joshswaterjobs", "", job["id"], strip_html(job["title"]["rendered"]), "see posting",
             job["link"], job["date_gmt"] + "+00:00", strip_html(job["content"]["rendered"]),

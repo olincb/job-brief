@@ -12,7 +12,7 @@ import re
 import sys
 from pathlib import Path
 
-from jobbrief.sources import condense, get, strip_html
+from jobbrief.sources import condense, get, joshswaterjobs_url, strip_html
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -22,7 +22,7 @@ BOARDS = [
     ("greenhouse", "gradle", "https://boards-api.greenhouse.io/v1/boards/gradle/jobs?content=true", None),
     ("neogov", "whatcomcounty", "https://www.governmentjobs.com/careers/home/loadJobsOnMaps?agency=whatcomcounty",
      {"X-Requested-With": "XMLHttpRequest"}),
-    ("joshswaterjobs", "idaho", "https://joshswaterjobs.com/wp-json/wp/v2/jwj_job?search=Idaho&per_page=20&orderby=date&order=desc&_fields=id%2Ctitle%2Clink%2Cdate_gmt%2Ccontent", None),
+    ("joshswaterjobs", "idaho", joshswaterjobs_url("Idaho"), None),
 ]
 
 # One posting for the condense test, saved as the text condense receives. Taken from a
