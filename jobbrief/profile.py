@@ -1,6 +1,7 @@
 """Signup's model stage: the prose profile drafted from one user's questionnaire answers
-and resume, and the title filters derived from the same answers. It runs before anything
-exists in the user's Drive, so a model failure ends signup with nothing to clean up."""
+and resume, and the title filters and condense vocabulary derived from the same answers.
+It runs before anything exists in the user's Drive, so a model failure ends signup with
+nothing to clean up."""
 
 import io
 import re
@@ -19,6 +20,10 @@ DATA = files("jobbrief.data")
 ASKED = [column for column in ANSWERS_HEADER if column not in ("resume", "submitted")]
 
 WORD_XML = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+
+# Question 4's spaced separator and the level after it; punctuation inside a name, as in
+# "scikit-learn" or "Node.js", has no whitespace around it and stays.
+TOOL_LEVEL = re.compile(r"(?:\s[-–—|]\s|[:;]\s|\s[([]).*$")
 
 
 def docx_text(data):
@@ -80,9 +85,13 @@ def draft_profile(answers, models, api_key, retries, resume=None):
     prompt = build_prompt(DATA.joinpath("profile_prompt.md").read_text(), answers, resume_text)
     profile, _model, _usage = generate(prompt, models, api_key, retries, pdf=pdf)
     title_filter, title_exclude = title_filters(answers)
+    # A starred license is one the user would get, so a posting's line naming it matters too.
+    vocabulary = ([TOOL_LEVEL.sub("", phrase) for phrase in _phrases(answers.get("tools"))]
+                  + [phrase.strip("* ") for phrase in _phrases(answers.get("certifications"))])
     return profile, {
         "title_filter": "\n".join(title_filter),
         "title_exclude": "\n".join(title_exclude),
+        "vocabulary": "\n".join(vocabulary),
         "lookback_days": LOOKBACK_DAYS_DEFAULT,
         "max_picks": MAX_PICKS_DEFAULT,
     }

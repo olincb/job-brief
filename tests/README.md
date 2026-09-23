@@ -12,7 +12,8 @@ bodies.
 
 ## Layout
 
-- `fixtures/<source>/<slug>.json`: a board's response saved unmodified.
+- `fixtures/<source>/<slug>.json`: a board's response saved unmodified, except that the
+  recorder replaces NEOGOV's third-party `mapTilerKey` with `REDACTED`.
 - `fixtures/posting.txt`: one posting as `condense` receives it, after HTML is
   stripped. It states years of experience, remote policy, and a pay range, the
   three lines condense must keep.
@@ -35,7 +36,8 @@ python -m tests.record_fixtures
 ```
 
 The recorder fetches each board listed in its `BOARDS` table and writes the body
-as returned. It refuses to write a body that is not JSON: a corporate proxy answers
+as returned, with NEOGOV's `mapTilerKey` replaced by `REDACTED`. It refuses to write
+a body that is not JSON: a corporate proxy answers
 some boards with an HTML block page, and a recorded block page is a fixture that
 passes for the wrong reason. It then scans the condense board for the first posting
 long enough to be cut that carries all three required lines, writes it to

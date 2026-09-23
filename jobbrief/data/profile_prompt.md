@@ -21,8 +21,8 @@ hold; these need context:
 
 - `experience`: years of relevant experience and the most recent title.
   Internships and certificates may be part of the number.
-- `tools`: each tool marked `job` (used at a job), `class` (coursework or a
-  project), or `heard of`. Treat the three as different levels of claim.
+- `tools`: each tool carries the person's own description of how well they
+  know it. Weigh a claim by that description.
 - `certifications`: licenses held; a starred one is not held but would be
   obtained quickly for the right job.
 - `work_types` and `employer_types`: ranked best first, with anything

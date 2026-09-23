@@ -1,5 +1,5 @@
 {
-  "_comment": "Slugs are the company identifier in each ATS board URL. greenhouse: boards.greenhouse.io/<slug>. lever: jobs.lever.co/<slug>. ashby: jobs.ashbyhq.com/<slug>. Every slug here was verified to return that company's postings on 2026-09-03. climatebase entries are search queries, not slugs; each returns its top 100. hackernews, remoteok, himalayas, and apple are whole feeds; their values are ignored. apple is a whole feed too: every US posting Apple marks home-office eligible. Boards that 404 are skipped. Title filters are per user and arrive as arguments to fetch, not from this file.",
+  "_comment": "Slugs are the company identifier in each ATS board URL. greenhouse: boards.greenhouse.io/<slug>. lever: jobs.lever.co/<slug>. ashby: jobs.ashbyhq.com/<slug>. Every slug here was verified to return that company's postings on 2026-09-03. neogov: governmentjobs.com/careers/<slug>, a public agency rather than a company, verified 2026-09-23: washington is the state (careers.wa.gov), cobwa the City of Bellingham, skagitwa Skagit County. climatebase entries are search queries, not slugs; each returns its top 100. joshswaterjobs entries are search queries too; each returns its newest 20. hackernews, remoteok, himalayas, and apple are whole feeds; their values are ignored. apple is a whole feed too: every US posting Apple marks home-office eligible. Boards that 404 are skipped. Title filters are per user and arrive as arguments to fetch, not from this file.",
   "greenhouse": [
     "buildkite",
     "circleci",
@@ -128,11 +128,38 @@
     "omnidian",
     "alltrails"
   ],
+  "neogov": [
+    "washington",
+    "whatcomcounty",
+    "cobwa",
+    "skagitwa",
+    "cityofferndale",
+    "lyndenwa",
+    "anacorteswa",
+    "mtvernonwa",
+    "everettwa",
+    "snohomish",
+    "islandcounty",
+    "sanjuancowa",
+    "seattle",
+    "kingcounty",
+    "tacoma",
+    "piercecountywa",
+    "bellevuewa",
+    "spokanecity"
+  ],
   "climatebase": [
     "software engineer",
     "backend engineer",
     "platform engineer",
     "infrastructure engineer"
+  ],
+  "joshswaterjobs": [
+    "Washington",
+    "Oregon",
+    "Puget Sound",
+    "Bellingham",
+    "remote"
   ],
   "hackernews": [
     "whoishiring"

@@ -17,23 +17,24 @@ from datetime import datetime, timedelta, timezone
 SKIPPED = []  # sources that failed to fetch this run, for the Runs row and heartbeat
 
 
-def get(url, attempts=2):
+def get(url, attempts=2, headers=None):
     """Fetch a URL as text. Large boards occasionally truncate mid-body, so retry once,
-    then skip the source rather than failing the whole run."""
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (job-brief)"})
+    then skip the source rather than failing the whole run. A 404 is a board that does not
+    exist, so it is skipped without the retry."""
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (job-brief)", **(headers or {})})
     for attempt in range(attempts):
         try:
             with urllib.request.urlopen(req, timeout=60) as resp:
                 return resp.read().decode()
         except (urllib.error.URLError, http.client.HTTPException, OSError) as exc:
-            if attempt == attempts - 1:
+            if attempt == attempts - 1 or getattr(exc, "code", None) == 404:
                 print(f"skip {url}: {exc}", file=sys.stderr)
                 SKIPPED.append(url)
-    return None
+                return None
 
 
-def get_json(url):
-    body = get(url)
+def get_json(url, headers=None):
+    body = get(url, headers=headers)
     try:
         return json.loads(body) if body else None
     except json.JSONDecodeError as exc:
@@ -60,8 +61,7 @@ SIGNAL_TIERS = [
                r"|familiar|strong (?:background|understanding|knowledge|experience|skills)|deep (?:understanding|knowledge|experience)"
                r"|degree|\bbs\b|\bms\b|phd|must|required|require\b|nice to have|bonus|preferred|\bplus\b|you have|you.ve"
                r"|you are|you.ll (?:need|bring)|we.re looking for|ideal candidate|track record", re.IGNORECASE),
-    # Stack mentions. Software vocabulary for now; this tier is what should come from the
-    # user's profile once condensing is per user.
+    # Stack mentions: the software default, used when a user's Settings vocabulary row is blank.
     re.compile(r"python|rust|\bgo\b|golang|\bjava\b|c\+\+|typescript|kubernetes|\baws\b|gcp|azure|postgres|kafka"
                r"|terraform|distributed|microservice|api\b|sdk|compiler|runtime|linux", re.IGNORECASE),
 ]
@@ -70,18 +70,26 @@ BOILERPLATE = re.compile(r"401\(k\)|\bpto\b|paid time off|parental|insurance|equ
                          r"|wellness|dental|vision|stipend|reasonable adjustments|protected", re.IGNORECASE)
 
 
-def condense(text, intro=300, limit=2400):
+def condense(text, intro=300, limit=2400, vocabulary=None):
     """Keep the opening of a posting plus the sentences that carry requirements, remote
     policy, pay, and stack, filling the budget by importance and then restoring document
     order. Full descriptions run 3k-8k characters and start with company boilerplate, so
     plain truncation hides exactly the lines the profile filters on; heading-based
-    extraction fails because benefits sections say "requirements" too."""
+    extraction fails because benefits sections say "requirements" too. A non-empty
+    `vocabulary` of literal terms stands in for the software stack tier."""
     if len(text) <= limit:
         return text
+    tiers = SIGNAL_TIERS
+    if vocabulary:
+        # Lookarounds rather than \b so a term ending in a symbol, like C++, still matches.
+        # Postings write the typographic apostrophe, so a straight one in a term must match either.
+        escaped = (re.escape(term).replace("'", "['’]") for term in vocabulary)
+        terms = "|".join(rf"(?<!\w){term}(?!\w)" for term in escaped)
+        tiers = SIGNAL_TIERS[:-1] + [re.compile(terms, re.IGNORECASE)]
     sentences = [x.strip() for x in re.split(r"\n|(?<=[.!?])\s+", text[intro:]) if len(x.strip()) >= 20]
     ranked = []
     for index, sentence in enumerate(sentences):
-        tier = next((t for t, pattern in enumerate(SIGNAL_TIERS) if pattern.search(sentence)), None)
+        tier = next((t for t, pattern in enumerate(tiers) if pattern.search(sentence)), None)
         if tier is None or (BOILERPLATE.search(sentence) and not PAY_OR_YEARS.search(sentence)):
             continue
         ranked.append((tier, index, sentence))
@@ -157,6 +165,39 @@ def fetch_climatebase(query):
         yield posting(
             "climatebase", job["name_of_employer"], job["id"], job["title"], location,
             f"https://climatebase.org/job/{job['id']}", job.get("activation_date"), snippet,
+        )
+
+
+def fetch_neogov(agency):
+    """One agency's board on governmentjobs.com, from the endpoint behind the careers page's
+    map view: every open posting in one response, a row per location, the description cut
+    to its opening paragraph."""
+    # The endpoint answers 404 unless the request carries the header the page's own script sends.
+    data = get_json(f"https://www.governmentjobs.com/careers/home/loadJobsOnMaps?agency={agency}",
+                    headers={"X-Requested-With": "XMLHttpRequest"})
+    for job in (data or {}).get("jobList", []):
+        posted = datetime.strptime(job["PostingDate"], "%m/%d/%y").replace(tzinfo=timezone.utc).isoformat()
+        yield posting(
+            "neogov", agency, job["ID"], job["Classification"], job.get("Location") or "",
+            f"https://www.governmentjobs.com/careers/{agency}/jobs/{job['ID']}/{job['JobTitle']}", posted,
+            " | ".join(filter(None, [job.get("JobType"), job.get("SalaryInfo"), strip_html(job.get("FullDescription"))])),
+        )
+
+
+def joshswaterjobs_url(term):
+    params = urllib.parse.urlencode({"search": term, "per_page": 20, "orderby": "date", "order": "desc",
+                                     "_fields": "id,title,link,date_gmt,content"})
+    return "https://joshswaterjobs.com/wp-json/wp/v2/jwj_job?" + params
+
+
+def fetch_joshswaterjobs(term):
+    """The newest 20 Josh's Water Jobs postings matching one search term; the board posts
+    about fifty a day worldwide, so it is searched rather than read whole. Titles name no
+    organization and location is free text in the body, so the description carries both."""
+    for job in get_json(joshswaterjobs_url(term)) or []:
+        yield posting(
+            "joshswaterjobs", "", job["id"], strip_html(job["title"]["rendered"]), "see posting",
+            job["link"], job["date_gmt"] + "+00:00", strip_html(job["content"]["rendered"]),
         )
 
 
@@ -274,16 +315,25 @@ def enrich_apple(job):
     return " | ".join(strip_html(part) for part in parts if part)
 
 
+def enrich_neogov(job):
+    page = get(job["url"])
+    match = re.search(r'<script type="application/ld\+json">(.*?)</script>', page or "", re.S)
+    if not match:
+        return None
+    # The list snippet ends with the description's opening paragraph, which the full description repeats.
+    return job["snippet"].rsplit(" | ", 1)[0] + " | " + strip_html(json.loads(match.group(1)).get("description"))
+
+
 # Sources whose list call lacks the job description. Run only on candidates that survive
 # dedup and the title filters, so this is a handful of requests per run.
-ENRICHERS = {"climatebase": enrich_climatebase, "apple": enrich_apple}
+ENRICHERS = {"climatebase": enrich_climatebase, "apple": enrich_apple, "neogov": enrich_neogov}
 
 
-# Company-board fetchers take an ATS slug. climatebase takes a search query.
+# Company-board fetchers take an ATS slug, neogov an agency slug. climatebase and joshswaterjobs take a search query.
 # hackernews, remoteok, himalayas, and apple are single feeds and ignore their value.
 FETCHERS = {
-    "greenhouse": fetch_greenhouse, "lever": fetch_lever, "ashby": fetch_ashby,
-    "climatebase": fetch_climatebase, "hackernews": fetch_hackernews,
+    "greenhouse": fetch_greenhouse, "lever": fetch_lever, "ashby": fetch_ashby, "neogov": fetch_neogov,
+    "climatebase": fetch_climatebase, "joshswaterjobs": fetch_joshswaterjobs, "hackernews": fetch_hackernews,
     "remoteok": fetch_remoteok, "himalayas": fetch_himalayas, "apple": fetch_apple,
 }
 
@@ -320,13 +370,13 @@ def select_candidates(postings, seen_urls, title_filter, title_exclude, lookback
     return selected[:CANDIDATE_CAP], True
 
 
-def enrich(candidates):
+def enrich(candidates, vocabulary=None):
     """Fill in descriptions for sources whose list call lacks one, then condense every
-    snippet to the lines the profile filters on. Runs after selection so it is a handful
-    of requests per run."""
+    snippet to the lines the profile filters on, keyed on the user's `vocabulary` when
+    given. Runs after selection so it is a handful of requests per run."""
     for job in candidates:
         fetch_description = ENRICHERS.get(job["id"].split(":")[0])
         if fetch_description:
             job["snippet"] = fetch_description(job) or job["snippet"]
-        job["snippet"] = condense(job["snippet"])
+        job["snippet"] = condense(job["snippet"], vocabulary=vocabulary)
     return candidates

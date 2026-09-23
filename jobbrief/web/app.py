@@ -29,7 +29,8 @@ SHEET_TITLE = "Job Brief"
 SHEET_URL = "https://docs.google.com/spreadsheets/d/{}"
 RECENT_RUNS = 10
 EDITABLE_SETTINGS = ["title_filter", "title_exclude", "max_picks"]  # lookback_days stays as signup wrote it
-RETAKE_SETTINGS = ["title_filter", "title_exclude"]  # the pick cap and lookback stay where the user left them
+# A retake redraws the answer-derived settings; the pick cap and lookback stay where the user left them.
+RETAKE_SETTINGS = ["title_filter", "title_exclude", "vocabulary"]
 
 _allowed = (0.0, frozenset())
 _stash = {}
