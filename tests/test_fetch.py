@@ -6,10 +6,16 @@ from datetime import datetime, timedelta, timezone
 
 from jobbrief import cli, sources
 from jobbrief.sheet import SEEN_HEADER
-from jobbrief.sources import CANDIDATE_CAP, enrich_neogov, fetch_greenhouse, fetch_neogov, is_recent, posting, select_candidates
+from jobbrief.sources import (
+    CANDIDATE_CAP, enrich_neogov, fetch_greenhouse, fetch_joshswaterjobs, fetch_neogov, is_recent, posting, select_candidates,
+)
 
 GRADLE_URL = "https://boards-api.greenhouse.io/v1/boards/gradle/jobs?content=true"
 WHATCOM_URL = "https://www.governmentjobs.com/careers/home/loadJobsOnMaps?agency=whatcomcounty"
+
+
+def water_jobs_url(term):
+    return f"https://joshswaterjobs.com/wp-json/wp/v2/jwj_job?search={term}&per_page=20&orderby=date&order=desc&_fields=id%2Ctitle%2Clink%2Cdate_gmt%2Ccontent"
 
 
 def serve(monkeypatch, responses):
@@ -71,6 +77,32 @@ def test_neogov_enricher_without_json_ld_returns_none(monkeypatch):
     job = posting("neogov", "agency", 1, "Technician", "", "https://example.com/jobs/1", None, "snippet")
     serve(monkeypatch, {job["url"]: "<html>no structured data</html>"})
     assert enrich_neogov(job) is None
+
+
+def test_water_jobs_fetcher_yields_recorded_postings(monkeypatch, fixture_dir):
+    body = (fixture_dir / "joshswaterjobs" / "idaho.json").read_text()
+    serve(monkeypatch, {water_jobs_url("Idaho"): body})
+    jobs = list(fetch_joshswaterjobs("Idaho"))
+    recorded = json.loads(body)
+    assert len(jobs) == len(recorded)
+    first = jobs[0]
+    assert first["id"] == f"joshswaterjobs::{recorded[0]['id']}"
+    assert first["url"] == recorded[0]["link"] and first["location"] == "see posting"
+    assert first["title"] and "&#" not in first["title"]
+    assert first["snippet"] and "<" not in first["snippet"]
+    assert is_recent(first["posted_at"], 365 * 100)
+
+
+def test_water_jobs_term_unreachable_is_skipped_not_fatal(monkeypatch):
+    serve(monkeypatch, {water_jobs_url("Idaho"): None})
+    assert list(fetch_joshswaterjobs("Idaho")) == []
+
+
+def test_water_jobs_posting_found_by_two_terms_keeps_one_id(monkeypatch, fixture_dir):
+    body = (fixture_dir / "joshswaterjobs" / "idaho.json").read_text()
+    serve(monkeypatch, {water_jobs_url("Idaho"): body, water_jobs_url("Oregon"): body})
+    pool = [*fetch_joshswaterjobs("Idaho"), *fetch_joshswaterjobs("Oregon")]
+    assert len(select_candidates(pool, set(), [], [], 365 * 100)[0]) == len(json.loads(body))
 
 
 GOOD_TITLES = ["Software Engineer, Platform", "Backend Engineer II"]

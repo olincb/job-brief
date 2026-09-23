@@ -22,6 +22,7 @@ BOARDS = [
     ("greenhouse", "gradle", "https://boards-api.greenhouse.io/v1/boards/gradle/jobs?content=true", None),
     ("neogov", "whatcomcounty", "https://www.governmentjobs.com/careers/home/loadJobsOnMaps?agency=whatcomcounty",
      {"X-Requested-With": "XMLHttpRequest"}),
+    ("joshswaterjobs", "idaho", "https://joshswaterjobs.com/wp-json/wp/v2/jwj_job?search=Idaho&per_page=20&orderby=date&order=desc&_fields=id%2Ctitle%2Clink%2Cdate_gmt%2Ccontent", None),
 ]
 
 # One posting for the condense test, saved as the text condense receives. Taken from a
@@ -55,7 +56,8 @@ def main():
         path.parent.mkdir(parents=True, exist_ok=True)
         # NEOGOV ships a third-party map key to every browser; it is not ours to publish.
         path.write_text(re.sub(r'"mapTilerKey":"[^"]*"', '"mapTilerKey":"REDACTED"', body))
-        print(f"{path.relative_to(FIXTURES.parent)}: {len(data.get('jobs') or data.get('jobList') or [])} postings")
+        postings = data if isinstance(data, list) else data.get("jobs") or data.get("jobList") or []
+        print(f"{path.relative_to(FIXTURES.parent)}: {len(postings)} postings")
 
     _, data = fetch_json(POSTING_BOARD)
     for job in data["jobs"]:

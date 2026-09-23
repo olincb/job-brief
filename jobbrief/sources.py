@@ -178,6 +178,19 @@ def fetch_neogov(agency):
         )
 
 
+def fetch_joshswaterjobs(term):
+    """The newest 20 Josh's Water Jobs postings matching one search term; the board posts
+    about fifty a day worldwide, so it is searched rather than read whole. Titles name no
+    organization and location is free text in the body, so the description carries both."""
+    params = urllib.parse.urlencode({"search": term, "per_page": 20, "orderby": "date", "order": "desc",
+                                     "_fields": "id,title,link,date_gmt,content"})
+    for job in get_json("https://joshswaterjobs.com/wp-json/wp/v2/jwj_job?" + params) or []:
+        yield posting(
+            "joshswaterjobs", "", job["id"], strip_html(job["title"]["rendered"]), "see posting",
+            job["link"], job["date_gmt"] + "+00:00", strip_html(job["content"]["rendered"]),
+        )
+
+
 HN_SEARCH = "https://hn.algolia.com/api/v1/search"
 
 
@@ -306,11 +319,11 @@ def enrich_neogov(job):
 ENRICHERS = {"climatebase": enrich_climatebase, "apple": enrich_apple, "neogov": enrich_neogov}
 
 
-# Company-board fetchers take an ATS slug, neogov an agency slug. climatebase takes a search query.
+# Company-board fetchers take an ATS slug, neogov an agency slug. climatebase and joshswaterjobs take a search query.
 # hackernews, remoteok, himalayas, and apple are single feeds and ignore their value.
 FETCHERS = {
     "greenhouse": fetch_greenhouse, "lever": fetch_lever, "ashby": fetch_ashby, "neogov": fetch_neogov,
-    "climatebase": fetch_climatebase, "hackernews": fetch_hackernews,
+    "climatebase": fetch_climatebase, "joshswaterjobs": fetch_joshswaterjobs, "hackernews": fetch_hackernews,
     "remoteok": fetch_remoteok, "himalayas": fetch_himalayas, "apple": fetch_apple,
 }
 
