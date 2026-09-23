@@ -62,8 +62,9 @@ def run_user(token, user, pool, api_key, today):
     candidates, capped = select_candidates(
         pool, seen, title_filter, settings["title_exclude"].splitlines(),
         lookback(int(settings.get("lookback_days") or LOOKBACK_DAYS_DEFAULT), runs_rows, today))
+    vocabulary = [line.strip() for line in settings.get("vocabulary", "").splitlines() if line.strip()]
     # Enrich a copy: the pool is shared, so enriching in place would re-fetch it for the next user.
-    candidates = enrich([dict(job) for job in candidates])
+    candidates = enrich([dict(job) for job in candidates], vocabulary)
     prompt = build_prompt(DATA.joinpath("prompt.md").read_text(), read_cell(token, sheet_id, "Profile!A1"),
                           pipeline, candidates, int(settings.get("max_picks") or MAX_PICKS_DEFAULT))
     text, model, usage = generate(prompt, MODELS, api_key, RETRIES, json_output=True)
