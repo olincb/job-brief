@@ -62,8 +62,7 @@ SIGNAL_TIERS = [
                r"|familiar|strong (?:background|understanding|knowledge|experience|skills)|deep (?:understanding|knowledge|experience)"
                r"|degree|\bbs\b|\bms\b|phd|must|required|require\b|nice to have|bonus|preferred|\bplus\b|you have|you.ve"
                r"|you are|you.ll (?:need|bring)|we.re looking for|ideal candidate|track record", re.IGNORECASE),
-    # Stack mentions. Software vocabulary for now; this tier is what should come from the
-    # user's profile once condensing is per user.
+    # Stack mentions: the software default, used when a user's Settings vocabulary row is blank.
     re.compile(r"python|rust|\bgo\b|golang|\bjava\b|c\+\+|typescript|kubernetes|\baws\b|gcp|azure|postgres|kafka"
                r"|terraform|distributed|microservice|api\b|sdk|compiler|runtime|linux", re.IGNORECASE),
 ]
@@ -72,18 +71,24 @@ BOILERPLATE = re.compile(r"401\(k\)|\bpto\b|paid time off|parental|insurance|equ
                          r"|wellness|dental|vision|stipend|reasonable adjustments|protected", re.IGNORECASE)
 
 
-def condense(text, intro=300, limit=2400):
+def condense(text, intro=300, limit=2400, vocabulary=None):
     """Keep the opening of a posting plus the sentences that carry requirements, remote
     policy, pay, and stack, filling the budget by importance and then restoring document
     order. Full descriptions run 3k-8k characters and start with company boilerplate, so
     plain truncation hides exactly the lines the profile filters on; heading-based
-    extraction fails because benefits sections say "requirements" too."""
+    extraction fails because benefits sections say "requirements" too. A non-empty
+    `vocabulary` of literal terms stands in for the software stack tier."""
     if len(text) <= limit:
         return text
+    tiers = SIGNAL_TIERS
+    if vocabulary:
+        # Lookarounds rather than \b so a term ending in a symbol, like C++, still matches.
+        terms = "|".join(rf"(?<!\w){re.escape(term)}(?!\w)" for term in vocabulary)
+        tiers = SIGNAL_TIERS[:2] + [re.compile(terms, re.IGNORECASE)]
     sentences = [x.strip() for x in re.split(r"\n|(?<=[.!?])\s+", text[intro:]) if len(x.strip()) >= 20]
     ranked = []
     for index, sentence in enumerate(sentences):
-        tier = next((t for t, pattern in enumerate(SIGNAL_TIERS) if pattern.search(sentence)), None)
+        tier = next((t for t, pattern in enumerate(tiers) if pattern.search(sentence)), None)
         if tier is None or (BOILERPLATE.search(sentence) and not PAY_OR_YEARS.search(sentence)):
             continue
         ranked.append((tier, index, sentence))
@@ -360,13 +365,13 @@ def select_candidates(postings, seen_urls, title_filter, title_exclude, lookback
     return selected[:CANDIDATE_CAP], True
 
 
-def enrich(candidates):
+def enrich(candidates, vocabulary=None):
     """Fill in descriptions for sources whose list call lacks one, then condense every
-    snippet to the lines the profile filters on. Runs after selection so it is a handful
-    of requests per run."""
+    snippet to the lines the profile filters on, keyed on the user's `vocabulary` when
+    given. Runs after selection so it is a handful of requests per run."""
     for job in candidates:
         fetch_description = ENRICHERS.get(job["id"].split(":")[0])
         if fetch_description:
             job["snippet"] = fetch_description(job) or job["snippet"]
-        job["snippet"] = condense(job["snippet"])
+        job["snippet"] = condense(job["snippet"], vocabulary=vocabulary)
     return candidates
