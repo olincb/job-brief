@@ -38,13 +38,16 @@ pipeline setting it informs, and *shape:* the answer type.
 
 4. **Tools and skills you would claim.** For each, mark *job* (used at a
    job), *class* (coursework or a project), or *heard of*.
-   *feeds:* realism; the model treats "job" and "class" differently.
+   *feeds:* realism; the model treats "job" and "class" differently. The
+   tools, without their marks, go into the `vocabulary` setting, which keeps
+   the posting lines that name them when a posting is cut to fit the prompt.
    *shape:* free list, one per line with the mark. No preset list, so the
    answer is not biased toward any field.
 
 5. **Licenses or certifications you hold.** Star any you do not have but
    would get quickly if a job wanted it.
-   *feeds:* realism; hard requirements in postings.
+   *feeds:* realism; hard requirements in postings. Each one, starred or
+   not, goes into the `vocabulary` setting alongside question 4's tools.
    *shape:* free list.
 
 ## The work
