@@ -200,10 +200,10 @@ tools and certifications answers and stored in `Settings`, so a
 conservation-district posting's "pesticide applicator certification" reaches
 the model for the user it matters to.
 
-Known gap at design time: public-sector sources. Washington state, county
-and city governments, WWU and conservation districts post through NEOGOV
-(governmentjobs.com, careers.wa.gov). A NEOGOV fetcher is the first new
-source to build.
+Public-sector postings come from NEOGOV, where Washington state, county
+and city governments, WWU and conservation districts post
+(governmentjobs.com, careers.wa.gov). Each agency is its own board, listed
+by slug in `sources.base.json` the way company boards are.
 
 ## Preferences: prose over schema
 

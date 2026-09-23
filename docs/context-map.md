@@ -64,7 +64,8 @@ Verify command: `python -m pytest`. Runs with no network; see `tests/README.md`.
 - `test_profile.py` — the generator prompt from an invented `Answers` row, the title filters as typed, a Word resume to text, and the PDF attachment.
 - `test_rank.py` — prompt assembly, the retry budget across both models, the model's picks into sheet rows, and picks per source ordered by count then name.
 - `test_mail.py` — the message builder's headers and multipart order, and the failure notices, without opening an SMTP connection.
-- `test_fetch.py` — Greenhouse fetcher against the recording, unreachable board skipped, title filters, Seen dedup, and the cap keeping the newest and flagging itself.
+- `test_fetch.py` — Greenhouse and NEOGOV fetchers against their recordings, an unreachable board or agency skipped, title filters, Seen dedup, and the cap keeping the newest and flagging itself.
 - `fixtures/greenhouse/gradle.json` — one Greenhouse board response, saved unmodified.
+- `fixtures/neogov/whatcomcounty.json` — one NEOGOV agency response, saved unmodified.
 - `fixtures/posting.txt` — one posting as `condense` receives it.
 - `fixtures/brief.md` — a hand-written sample brief with invented companies.
