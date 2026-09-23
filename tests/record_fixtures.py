@@ -3,9 +3,9 @@
     python -m tests.record_fixtures
 
 The one place in the test tree that touches the network; the default test run never
-imports it for its side effects. Each board is one fetch saved as returned, except that
-NEOGOV's third-party map key is redacted, so the fetcher tests see what the board
-returned. Sources are public job boards only.
+imports it for its side effects. Each board is one fetch saved as returned, NEOGOV's map
+key aside, so the fetcher tests see what the board returned. Sources are public job
+boards only.
 """
 
 import json
@@ -17,8 +17,8 @@ from jobbrief.sources import condense, get, joshswaterjobs_url, strip_html
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
-# Boards saved as fixtures/<source>/<slug>.json, unmodified but for any mapTilerKey value,
-# requested with the headers their fetcher sends. Small boards keep them readable.
+# Boards saved as fixtures/<source>/<slug>.json, requested with the headers their fetcher
+# sends. Small boards keep them readable.
 BOARDS = [
     ("greenhouse", "gradle", "https://boards-api.greenhouse.io/v1/boards/gradle/jobs?content=true", None),
     ("neogov", "whatcomcounty", "https://www.governmentjobs.com/careers/home/loadJobsOnMaps?agency=whatcomcounty",

@@ -28,8 +28,8 @@ separate private repo and is never referenced here by value.
 - **Prose profiles, not schemas.** Preferences that involve judgment live
   in the profile text and are interpreted by the model. Structured fields
   exist only for mechanical things: dedup, title filters, the condense
-  vocabulary, lookback, pick cap, frequency. Add a field only when a failure recurs and a field would
-  have prevented it.
+  vocabulary, lookback, pick cap, frequency. Add a field only when a failure
+  recurs and a field would have prevented it.
 - **One generator function per source.** A fetcher yields postings in the
   common shape and is skipped, not fatal, when its source is unreachable.
 - **Users hold nothing.** No refresh tokens, no stored resumes. The user's

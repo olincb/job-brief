@@ -167,9 +167,9 @@ def fetch_climatebase(query):
 
 
 def fetch_neogov(agency):
-    """One agency's board on governmentjobs.com. The careers page's map view calls this
-    endpoint, which returns every open posting in one response, a row per location, with
-    the description cut to its opening paragraph."""
+    """One agency's board on governmentjobs.com, from the endpoint behind the careers page's
+    map view: every open posting in one response, a row per location, the description cut
+    to its opening paragraph."""
     # The endpoint answers 404 unless the request carries the header the page's own script sends.
     data = get_json(f"https://www.governmentjobs.com/careers/home/loadJobsOnMaps?agency={agency}",
                     headers={"X-Requested-With": "XMLHttpRequest"})

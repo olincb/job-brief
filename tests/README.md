@@ -36,8 +36,8 @@ python -m tests.record_fixtures
 ```
 
 The recorder fetches each board listed in its `BOARDS` table and writes the body
-as returned, except that NEOGOV's third-party `mapTilerKey` is replaced with
-`REDACTED`. It refuses to write a body that is not JSON: a corporate proxy answers
+as returned, with NEOGOV's `mapTilerKey` replaced by `REDACTED`. It refuses to write
+a body that is not JSON: a corporate proxy answers
 some boards with an HTML block page, and a recorded block page is a fixture that
 passes for the wrong reason. It then scans the condense board for the first posting
 long enough to be cut that carries all three required lines, writes it to
