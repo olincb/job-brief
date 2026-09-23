@@ -19,7 +19,7 @@ is added. The design and its reasons are in `design.md`; this is only a map.
 - `__main__.py` — hands off to `cli.main`.
 - `cli.py` — `python -m jobbrief`: argparse, the `run` subcommand that calls into `run.py`, and the stage subcommands that debug one user from files under `--out`. The only module that touches the filesystem, and with `mail.py` one of the two that read the environment.
 - `mail.py` — `send(to, subject, html, text)`: one email through SES over SMTP (multipart/alternative, STARTTLS on 587), plus the two failure-notice bodies. Reads the SES credentials and sender from the environment.
-- `sources.py` — where postings come from: HTTP get, HTML stripping, `condense`, one generator per source (one shared by every WordPress board), the enrichers, and `select_candidates` over the fetched pool, newest first under the candidate cap, with at most a third of it from one board.
+- `sources.py` — where postings come from: HTTP get, HTML stripping, `condense`, one generator per source (one shared by every WordPress board), the enrichers, and `select_candidates` over the fetched pool, newest first under the candidate cap, with at most a third of it from one board while other boards can fill the rest.
 - `llm.py` — `generate`, the one Gemini call with retries and the fallback model inside it, and the tolerant JSON parser.
 - `rank.py` — `build_prompt` from template, profile, pipeline, and candidates; `finish` from the model's answer to the brief, the sheet rows, and picks per source.
 - `profile.py` — signup's model stage: `draft_profile` from an `Answers` row and an optional resume to the prose profile and the `Settings` values, with the docx-to-text step, the title filters, and the condense vocabulary behind it.
@@ -64,7 +64,7 @@ Verify command: `python -m pytest`. Runs with no network; see `tests/README.md`.
 - `test_profile.py` — the generator prompt from an invented `Answers` row, the title filters as typed, the vocabulary row, a Word resume to text, and the PDF attachment.
 - `test_rank.py` — prompt assembly, the retry budget across both models, the model's picks into sheet rows, and picks per source ordered by count then name.
 - `test_mail.py` — the message builder's headers and multipart order, and the failure notices, without opening an SMTP connection.
-- `test_fetch.py` — Greenhouse, NEOGOV, WordPress and We Work Remotely fetchers against their recordings, an unreachable board skipped, a transient failure retried once and a 404 not, every shared source having a fetcher, the NEOGOV enricher through `enrich`, one id for a posting two search terms find, title filters, Seen dedup, and the cap keeping the newest, limiting any one board to its share only when it bites, and flagging itself.
+- `test_fetch.py` — Greenhouse, NEOGOV, WordPress and We Work Remotely fetchers against their recordings, an unreachable board and a We Work Remotely feed that is not XML skipped, a transient failure retried once and a 404 not, every shared source having a fetcher, the NEOGOV enricher through `enrich`, one id for a posting two search terms find, title filters, Seen dedup, and the cap keeping the newest, limiting any one board to its share only while other boards can fill the rest, and flagging itself.
 - `fixtures/greenhouse/gradle.json` — one Greenhouse board response, saved unmodified.
 - `fixtures/neogov/whatcomcounty.json` — one NEOGOV agency response, saved unmodified but for its map key.
 - `fixtures/wordpress/joshswaterjobs-idaho.json` — one Josh's Water Jobs search response, saved unmodified.

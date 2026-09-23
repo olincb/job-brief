@@ -41,9 +41,9 @@ The recorder fetches each board listed in its `BOARDS` table and writes the body
 as returned, with NEOGOV's `mapTilerKey` replaced by `REDACTED`. It refuses to write
 a body that is not JSON, or for an RSS feed, XML with at least one item: a corporate
 proxy answers some boards with an HTML block page, and a recorded block page is a
-fixture that passes for the wrong reason. It then scans the condense board for the first posting
-long enough to be cut that carries all three required lines, writes it to
-`posting.txt`, and prints the title it chose. If none qualifies, it exits without
+fixture that passes for the wrong reason. It then scans the condense board for the
+first posting long enough to be cut that carries all three required lines, writes it
+to `posting.txt`, and prints the title it chose. If none qualifies, it exits without
 writing; point it at a different board.
 
 After recording, run the tests, read the diff, and commit the fixtures with
