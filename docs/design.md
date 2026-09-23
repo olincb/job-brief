@@ -182,7 +182,9 @@ Guardrails:
   is not mechanized: what a level word implies reads differently in every
   field, so it stays a judgment the profile carries.
 - Candidates per user per run are capped at 150, the newest kept; hitting
-  the cap is flagged as a filter that is too loose.
+  the cap is flagged as a filter that is too loose. Over the cap no one board
+  takes more than a third of it, so a board the size of Cloudflare's cannot
+  crowd out every other source.
 
 Coverage is measured, not configured. Per user per run: candidate count,
 pick count, and which source each pick came from, all of which the run

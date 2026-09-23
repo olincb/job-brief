@@ -11,8 +11,8 @@ import pytest
 from jobbrief import cli, sources
 from jobbrief.sheet import SEEN_HEADER
 from jobbrief.sources import (
-    CANDIDATE_CAP, FETCHERS, enrich, fetch_greenhouse, fetch_neogov, fetch_weworkremotely, fetch_wordpress, posting,
-    select_candidates, wordpress_url,
+    BOARD_SHARE, CANDIDATE_CAP, FETCHERS, enrich, fetch_greenhouse, fetch_neogov, fetch_weworkremotely, fetch_wordpress,
+    posting, select_candidates, wordpress_url,
 )
 
 GRADLE_URL = "https://boards-api.greenhouse.io/v1/boards/gradle/jobs?content=true"
@@ -170,12 +170,12 @@ def titles(candidates):
     return [c["title"] for c in candidates]
 
 
-def dated_pool(count):
-    """`count` matching postings a minute apart, newest first."""
+def dated_pool(count, boards=("a", "b", "c", "d"), start=0):
+    """`count` matching postings a minute apart, newest first, dealt across `boards`."""
     now = datetime.now(timezone.utc)
-    return [posting("fake", "board", n, "Backend Engineer", "Remote", f"https://example.com/jobs/{n}",
+    return [posting("fake", boards[n % len(boards)], n, "Backend Engineer", "Remote", f"https://example.com/jobs/{n}",
                     (now - timedelta(minutes=n)).isoformat(), "short description")
-            for n in range(count)]
+            for n in range(start, start + count)]
 
 
 def test_title_filters_keep_good_titles_and_drop_bad():
@@ -189,7 +189,17 @@ def test_postings_already_seen_are_dropped():
 
 def test_over_the_cap_keeps_the_newest():
     candidates, _ = select_candidates(dated_pool(200), set(), INCLUDE, EXCLUDE, 3)
-    assert [c["id"] for c in candidates] == [f"fake:board:{n}" for n in range(CANDIDATE_CAP)]
+    assert [c["id"] for c in candidates] == [f"fake:{'abcd'[n % 4]}:{n}" for n in range(CANDIDATE_CAP)]
+
+
+def test_one_board_over_the_cap_keeps_its_share_and_every_other_board():
+    big, rest = dated_pool(200, ["big"]), dated_pool(40, ["small", "other"], start=200)
+    candidates, _ = select_candidates(big + rest, set(), INCLUDE, EXCLUDE, 3)
+    assert [c["id"] for c in candidates] == [c["id"] for c in big[:BOARD_SHARE] + rest]
+
+
+def test_one_board_under_the_cap_is_not_limited():
+    assert len(select_candidates(dated_pool(CANDIDATE_CAP, ["big"]), set(), INCLUDE, EXCLUDE, 3)[0]) == CANDIDATE_CAP
 
 
 def test_capped_is_reported_only_when_the_cap_bites():

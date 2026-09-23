@@ -12,6 +12,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections import Counter
 from datetime import datetime, timedelta, timezone
 from xml.etree import ElementTree
 
@@ -372,13 +373,16 @@ def is_recent(iso, lookback_days):
 
 # More than this many condensed postings crowds out the profile and pipeline in the model request.
 CANDIDATE_CAP = 150
+# A board posting hundreds of matching titles a week would otherwise fill the cap by itself.
+BOARD_SHARE = CANDIDATE_CAP // 3
 
 
 def select_candidates(postings, seen_urls, title_filter, title_exclude, lookback_days):
     """One user's view of the pool as `(candidates, capped)`: unseen, recent, and passing
     their title filters. A title must match one filter pattern and no exclude pattern,
     case-insensitively. Overlapping sources can return the same posting, so the result is
-    keyed by id."""
+    keyed by id. Over the cap the newest are kept, at most `BOARD_SHARE` from one board,
+    the board being the id's first two fields."""
     title_ok = re.compile("|".join(title_filter or []) or ".", re.IGNORECASE)
     title_bad = re.compile("|".join(title_exclude or []) or "(?!)", re.IGNORECASE)
     candidates = {}
@@ -392,7 +396,14 @@ def select_candidates(postings, seen_urls, title_filter, title_exclude, lookback
         return selected, False
     # ISO timestamps order correctly as strings, and a posting with no date sorts oldest.
     selected.sort(key=lambda job: job["posted_at"] or "", reverse=True)
-    return selected[:CANDIDATE_CAP], True
+    per_board = Counter()
+    kept = []
+    for job in selected:
+        board = ":".join(job["id"].split(":", 2)[:2])
+        if per_board[board] < BOARD_SHARE:
+            per_board[board] += 1
+            kept.append(job)
+    return kept[:CANDIDATE_CAP], True
 
 
 def enrich(candidates, vocabulary=None):
