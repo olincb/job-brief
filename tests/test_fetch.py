@@ -11,14 +11,15 @@ import pytest
 from jobbrief import cli, sources
 from jobbrief.sheet import SEEN_HEADER
 from jobbrief.sources import (
-    CANDIDATE_CAP, FETCHERS, enrich, fetch_greenhouse, fetch_neogov, fetch_wordpress, posting, select_candidates,
-    wordpress_url,
+    CANDIDATE_CAP, FETCHERS, enrich, fetch_greenhouse, fetch_neogov, fetch_weworkremotely, fetch_wordpress, posting,
+    select_candidates, wordpress_url,
 )
 
 GRADLE_URL = "https://boards-api.greenhouse.io/v1/boards/gradle/jobs?content=true"
 WHATCOM_URL = "https://www.governmentjobs.com/careers/home/loadJobsOnMaps?agency=whatcomcounty"
 IDAHO = "joshswaterjobs.com/jwj_job?search=Idaho"
 WCA = "waconservationaction.org/job"
+WWR_URL = "https://weworkremotely.com/categories/remote-programming-jobs.rss"
 
 
 def serve(monkeypatch, responses):
@@ -43,6 +44,7 @@ def test_greenhouse_fetcher_yields_recorded_postings(monkeypatch, fixture_dir):
     (fetch_neogov, "whatcomcounty", WHATCOM_URL),
     (fetch_wordpress, IDAHO, wordpress_url(IDAHO)),
     (fetch_wordpress, WCA, wordpress_url(WCA)),
+    (fetch_weworkremotely, "remote-programming-jobs", WWR_URL),
 ])
 def test_unreachable_board_is_skipped_not_fatal(monkeypatch, fetch, slug, url):
     serve(monkeypatch, {url: None})  # what get returns after its retries fail
@@ -125,6 +127,18 @@ def test_wordpress_fetcher_yields_recorded_water_jobs_postings(monkeypatch, fixt
     assert first["posted_at"] == recorded[0]["date_gmt"] + "+00:00"
     escaped = next(n for n, job in enumerate(recorded) if "&#" in job["content"]["rendered"])
     assert "&#" not in jobs[escaped]["snippet"]
+
+
+def test_weworkremotely_fetcher_splits_company_from_title(monkeypatch, fixture_dir):
+    serve(monkeypatch, {WWR_URL: (fixture_dir / "weworkremotely" / "remote-programming-jobs.xml").read_text()})
+    jobs = list(fetch_weworkremotely("remote-programming-jobs"))
+    assert len(jobs) == 25
+    url = "https://weworkremotely.com/remote-jobs/lemon-io-senior-net-full-stack-developer-1"
+    assert {key: jobs[0][key] for key in ("id", "company", "title", "location", "url", "posted_at")} == {
+        "id": f"weworkremotely:Lemon.io:{url}", "company": "Lemon.io", "title": "Senior .NET Full-stack Developer",
+        "location": "Anywhere in the World", "url": url, "posted_at": "2026-09-08T13:49:13+00:00",
+    }
+    assert jobs[0]["snippet"].startswith("Headquarters: New York, NY") and "<" not in jobs[0]["snippet"]
 
 
 def test_two_terms_sharing_a_posting_collapse_to_one_id(monkeypatch, fixture_dir):

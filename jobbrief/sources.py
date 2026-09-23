@@ -3,6 +3,7 @@ the common shape from posting(); a source that is unreachable is skipped, not fa
 the per-user selection over the fetched pool and condense, which trims a posting to the
 lines a profile filters on."""
 
+import email.utils
 import html
 import http.client
 import json
@@ -12,6 +13,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
+from xml.etree import ElementTree
 
 
 SKIPPED = []  # sources that failed to fetch this run, for the Runs row and heartbeat
@@ -248,6 +250,23 @@ def fetch_remoteok(_):
         )
 
 
+def fetch_weworkremotely(category):
+    """The newest postings in one We Work Remotely category's RSS feed, whose titles read
+    "Company: Title"."""
+    feed = get(f"https://weworkremotely.com/categories/{category}.rss")
+    if not feed:
+        return
+    for item in ElementTree.fromstring(feed).iter("item"):
+        head, sep, tail = item.findtext("title").partition(": ")
+        company, title = (head, tail) if sep else ("", head)
+        link = item.findtext("link")
+        yield posting(
+            "weworkremotely", company, item.findtext("guid") or link, title, item.findtext("region") or "Remote",
+            link, email.utils.parsedate_to_datetime(item.findtext("pubDate")).isoformat(),
+            strip_html(item.findtext("description")),
+        )
+
+
 def fetch_himalayas(_):
     """Himalayas remote job feed, newest first, 20 per page, cursor paginated. Walk pages
     until postings are older than a week; the lookback filter does the rest."""
@@ -333,13 +352,14 @@ def enrich_neogov(job):
 ENRICHERS = {"climatebase": enrich_climatebase, "apple": enrich_apple, "neogov": enrich_neogov}
 
 
-# Company-board fetchers take an ATS slug, neogov an agency slug, climatebase a search query, and
-# wordpress a site and post type with an optional search term. hackernews, remoteok, himalayas,
-# and apple are single feeds and ignore their value.
+# Company-board fetchers take an ATS slug, neogov an agency slug, climatebase a search query,
+# wordpress a site and post type with an optional search term, and weworkremotely a category.
+# hackernews, remoteok, himalayas, and apple are single feeds and ignore their value.
 FETCHERS = {
     "greenhouse": fetch_greenhouse, "lever": fetch_lever, "ashby": fetch_ashby, "neogov": fetch_neogov,
     "climatebase": fetch_climatebase, "wordpress": fetch_wordpress, "hackernews": fetch_hackernews,
-    "remoteok": fetch_remoteok, "himalayas": fetch_himalayas, "apple": fetch_apple,
+    "remoteok": fetch_remoteok, "weworkremotely": fetch_weworkremotely, "himalayas": fetch_himalayas,
+    "apple": fetch_apple,
 }
 
 
