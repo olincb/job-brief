@@ -378,8 +378,7 @@ def is_recent(iso, lookback_days):
 
 # More than this many condensed postings crowds out the profile and pipeline in the model request.
 CANDIDATE_CAP = 150
-# Over the cap one board keeps at most this many while other boards have postings to fill the
-# rest, so a board posting hundreds of matching titles a week cannot fill the cap by itself.
+# A board posting hundreds of matching titles a week would otherwise fill the cap by itself.
 BOARD_SHARE = CANDIDATE_CAP // 3
 
 

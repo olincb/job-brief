@@ -214,7 +214,7 @@ is its own board, listed by slug in `sources.base.json` the way company
 boards are. Josh's Water Jobs is the water-sector board (utilities, water
 resources, wastewater, water quality), searched by term because it posts
 about fifty a day worldwide. Washington Conservation Action's board carries
-the organization's own environmental advocacy openings. Both are WordPress
+its own environmental advocacy openings. Both are WordPress
 sites, read through the WordPress REST API and listed in `sources.base.json`
 as site and post type, with a search term on a board too busy to read whole.
 
