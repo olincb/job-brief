@@ -1,13 +1,17 @@
 import argparse
+import io
 import json
 import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
+from importlib.resources import files
+
+import pytest
 
 from jobbrief import cli, sources
 from jobbrief.sheet import SEEN_HEADER
 from jobbrief.sources import (
-    CANDIDATE_CAP, enrich_neogov, fetch_greenhouse, fetch_joshswaterjobs, fetch_neogov, is_recent, joshswaterjobs_url, posting,
+    CANDIDATE_CAP, FETCHERS, enrich, fetch_greenhouse, fetch_joshswaterjobs, fetch_neogov, joshswaterjobs_url, posting,
     select_candidates,
 )
 
@@ -32,21 +36,33 @@ def test_greenhouse_fetcher_yields_recorded_postings(monkeypatch, fixture_dir):
     assert "<" not in first["snippet"]
 
 
-def test_unreachable_board_is_skipped_not_fatal(monkeypatch):
-    serve(monkeypatch, {GRADLE_URL: None})  # what get returns after its retries fail
-    assert list(fetch_greenhouse("gradle")) == []
+@pytest.mark.parametrize("fetch, slug, url", [
+    (fetch_greenhouse, "gradle", GRADLE_URL),
+    (fetch_neogov, "whatcomcounty", WHATCOM_URL),
+    (fetch_joshswaterjobs, "Idaho", joshswaterjobs_url("Idaho")),
+])
+def test_unreachable_board_is_skipped_not_fatal(monkeypatch, fetch, slug, url):
+    serve(monkeypatch, {url: None})  # what get returns after its retries fail
+    assert list(fetch(slug)) == []
+
+
+def test_every_shared_source_has_a_fetcher():
+    boards = json.loads(files("jobbrief.data").joinpath("sources.base.json").read_text())
+    assert {key for key in boards if not key.startswith("_")} <= FETCHERS.keys()
 
 
 def test_neogov_fetcher_yields_recorded_postings(monkeypatch, fixture_dir):
     body = (fixture_dir / "neogov" / "whatcomcounty.json").read_text()
     serve(monkeypatch, {WHATCOM_URL: body})
     jobs = list(fetch_neogov("whatcomcounty"))
-    assert len(jobs) == len(json.loads(body)["jobList"])
+    recorded = json.loads(body)["jobList"]
+    assert len(jobs) == len(recorded)
     first = jobs[0]
     job_id = first["id"].removeprefix("neogov:whatcomcounty:")
     assert job_id and first["url"].startswith(f"https://www.governmentjobs.com/careers/whatcomcounty/jobs/{job_id}/")
-    assert first["title"] and first["location"] and first["snippet"]
-    assert is_recent(first["posted_at"], 365 * 100)
+    assert (first["title"], first["location"]) == (recorded[0]["Classification"], recorded[0]["Location"])
+    assert first["snippet"].startswith(f"{recorded[0]['JobType']} | {recorded[0]['SalaryInfo']} | ")
+    assert first["posted_at"] == "2023-03-31T00:00:00+00:00"
 
 
 def test_unreachable_agency_is_skipped_without_a_retry(monkeypatch):
@@ -62,18 +78,35 @@ def test_unreachable_agency_is_skipped_without_a_retry(monkeypatch):
     assert calls == [(WHATCOM_URL, "XMLHttpRequest")] and sources.SKIPPED == [WHATCOM_URL]
 
 
+def test_a_failed_fetch_is_retried_once(monkeypatch):
+    responses = iter([urllib.error.URLError("timed out"), io.BytesIO(b"{}")])
+    calls = []
+
+    def flaky(req, timeout):
+        calls.append(req.full_url)
+        response = next(responses)
+        if isinstance(response, Exception):
+            raise response
+        return response
+
+    monkeypatch.setattr(urllib.request, "urlopen", flaky)
+    monkeypatch.setattr(sources, "SKIPPED", [])
+    assert sources.get(WHATCOM_URL) == "{}"
+    assert calls == [WHATCOM_URL, WHATCOM_URL] and sources.SKIPPED == []
+
+
 def test_neogov_enricher_swaps_the_excerpt_for_the_full_description(monkeypatch):
     job = posting("neogov", "agency", 1, "Technician", "Bellingham, WA", "https://example.com/jobs/1", None,
                   "Full-Time | $20.00 - $30.00 Hourly | Opening paragraph...")
     page = '<script type="application/ld+json">{"@type": "JobPosting", "description": "&lt;p&gt;Opening paragraph.&lt;/p&gt;&lt;p&gt;Two years of field experience.&lt;/p&gt;"}</script>'
     serve(monkeypatch, {job["url"]: page})
-    assert enrich_neogov(job) == "Full-Time | $20.00 - $30.00 Hourly | Opening paragraph.\nTwo years of field experience."
+    assert enrich([job])[0]["snippet"] == "Full-Time | $20.00 - $30.00 Hourly | Opening paragraph.\nTwo years of field experience."
 
 
-def test_neogov_enricher_without_json_ld_returns_none(monkeypatch):
+def test_neogov_posting_page_without_json_ld_keeps_the_list_snippet(monkeypatch):
     job = posting("neogov", "agency", 1, "Technician", "", "https://example.com/jobs/1", None, "snippet")
     serve(monkeypatch, {job["url"]: "<html>no structured data</html>"})
-    assert enrich_neogov(job) is None
+    assert enrich([job])[0]["snippet"] == "snippet"
 
 
 def test_water_jobs_fetcher_yields_recorded_postings(monkeypatch, fixture_dir):
@@ -85,21 +118,18 @@ def test_water_jobs_fetcher_yields_recorded_postings(monkeypatch, fixture_dir):
     first = jobs[0]
     assert first["id"] == f"joshswaterjobs::{recorded[0]['id']}"
     assert first["url"] == recorded[0]["link"] and first["location"] == "see posting"
-    assert first["title"] and "&#" not in first["title"]
-    assert first["snippet"] and "<" not in first["snippet"]
-    assert is_recent(first["posted_at"], 365 * 100)
+    assert first["title"] and first["snippet"] and "<" not in first["snippet"]
+    assert first["posted_at"] == recorded[0]["date_gmt"] + "+00:00"
+    escaped = next(n for n, job in enumerate(recorded) if "&#" in job["content"]["rendered"])
+    assert "&#" not in jobs[escaped]["snippet"]
 
 
-def test_water_jobs_term_unreachable_is_skipped_not_fatal(monkeypatch):
-    serve(monkeypatch, {joshswaterjobs_url("Idaho"): None})
-    assert list(fetch_joshswaterjobs("Idaho")) == []
-
-
-def test_water_jobs_posting_found_by_two_terms_keeps_one_id(monkeypatch, fixture_dir):
+def test_two_terms_sharing_a_posting_collapse_to_one_id(monkeypatch, fixture_dir):
     body = (fixture_dir / "joshswaterjobs" / "idaho.json").read_text()
     serve(monkeypatch, {joshswaterjobs_url("Idaho"): body, joshswaterjobs_url("Oregon"): body})
     pool = [*fetch_joshswaterjobs("Idaho"), *fetch_joshswaterjobs("Oregon")]
-    assert len(select_candidates(pool, set(), [], [], 365 * 100)[0]) == len(json.loads(body))
+    ids = [job["id"] for job in select_candidates(pool, set(), [], [], 365 * 100)[0]]
+    assert sorted(ids) == sorted({f"joshswaterjobs::{job['id']}" for job in json.loads(body)})
 
 
 GOOD_TITLES = ["Software Engineer, Platform", "Backend Engineer II"]
