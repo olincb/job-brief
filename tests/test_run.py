@@ -185,13 +185,14 @@ def test_blank_numbers_run_on_the_defaults(monkeypatch):
 
 def test_the_settings_vocabulary_keeps_its_terms_in_the_prompt(monkeypatch):
     license_line = "A valid driver's license and a pesticide applicator certification."
-    settings = SETTINGS + [{"key": "vocabulary", "value": "pesticide applicator\n"}]
+    filler = "The district serves the county watershed. " * 80
+    settings = SETTINGS + [{"key": "vocabulary", "value": "\npesticide applicator\n\n"}]
     events = drive(monkeypatch, [USER_A], {("sheet-a", "Settings"): settings}, picks=1)
-    field_job = posting("fake", "board", 9, "Field Engineer", "Remote", "https://example.com/jobs/9", None,
-                        "The district serves the county watershed. " * 80 + license_line)
+    field_job = posting("fake", "board", 9, "Field Engineer", "Remote", "https://example.com/jobs/9", None, filler + license_line)
     monkeypatch.setattr(run, "FETCHERS", {"hackernews": lambda slug: iter([field_job])})
     assert run.run(ENV, FRIDAY) == 0
-    assert license_line in next(event[1] for event in events if event[0] == "generate")
+    prompt = next(event[1] for event in events if event[0] == "generate")
+    assert license_line in prompt and filler not in prompt
 
 
 def test_every_user_failing_makes_the_run_itself_red(monkeypatch):
