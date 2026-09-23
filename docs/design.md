@@ -203,7 +203,10 @@ the model for the user it matters to.
 Public-sector postings come from NEOGOV, where Washington state, county
 and city governments, WWU and conservation districts post
 (governmentjobs.com, careers.wa.gov). Each agency is its own board, listed
-by slug in `sources.base.json` the way company boards are.
+by slug in `sources.base.json` the way company boards are. Josh's Water
+Jobs is the water-sector board (utilities, water resources, wastewater,
+water quality), searched by term because it posts about fifty a day
+worldwide.
 
 ## Preferences: prose over schema
 
@@ -369,7 +372,8 @@ scoping, SES send. Web app: sign-in and gate, signup with sheet creation,
 profile generation from answers and resume, settings. Daily job: send-day
 rule and stretched lookback, the candidate cap and empty-filter guard, the
 run loop that fetches once and then serves every user, engine docs. Sources
-and digest: the operator digest, NEOGOV, per-user condense vocabulary.
+and digest: the operator digest, NEOGOV, Josh's Water Jobs, per-user
+condense vocabulary.
 Already built from the prototype: the fetchers, condensing, the ranking
 prompt and JSON contract, the fallback-model retry budget, the renderer,
 and the heartbeat rule. Issues carry the detail.
