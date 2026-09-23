@@ -21,8 +21,10 @@ ASKED = [column for column in ANSWERS_HEADER if column not in ("resume", "submit
 
 WORD_XML = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 
-# Question 4's job/class/heard-of mark at the end of a line, as in "GIS - job" or "SCADA (class)".
-TOOL_MARK = re.compile(r"[\s(:,-]+(?:job|class|heard of)\)?$", re.IGNORECASE)
+# Question 4's job/class/heard-of mark and anything after it, from the run of whitespace
+# or punctuation that precedes it to the end of the line, as in "GIS - job" or
+# "python: job, mostly scripts"; the mark itself is a whole word, so "JobRunner" is untouched.
+TOOL_MARK = re.compile(r"[\s\W]+(?:job|class|heard of)\b.*$", re.IGNORECASE)
 
 
 def docx_text(data):

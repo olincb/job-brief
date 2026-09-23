@@ -41,8 +41,9 @@ pipeline setting it informs, and *shape:* the answer type.
    *feeds:* realism; the model treats "job" and "class" differently. The
    tools, without their marks, go into the `vocabulary` setting, which keeps
    the posting lines that name them when a posting is cut to fit the prompt.
-   *shape:* free list, one per line with the mark. No preset list, so the
-   answer is not biased toward any field.
+   *shape:* free list, one per line: the tool or skill first, then the mark.
+   The name is what postings are matched on. No preset list, so the answer
+   is not biased toward any field.
 
 5. **Licenses or certifications you hold.** Star any you do not have but
    would get quickly if a job wanted it.

@@ -58,7 +58,10 @@ def test_draft_profile_attaches_a_pdf_resume_and_returns_the_settings(monkeypatc
         return {"candidates": [{"content": {"parts": [{"text": "## Summary\n\nA water person."}]}}], "usageMetadata": {}}
 
     monkeypatch.setattr(llm, "call_gemini", call)
-    answers = dict(ANSWERS, certifications="Class B CDL\n*pesticide applicator")
+    answers = dict(ANSWERS,
+                   tools="GIS - job\nSCADA - class\nrust - job (not often)\npython: job, mostly scripts\n"
+                         "SQL; job\nR — heard of",
+                   certifications="Class B CDL\n*pesticide applicator")
     profile, settings = draft_profile(answers, ["primary"], "key", 2, resume=("resume.pdf", b"%PDF-1.4"))
     parts = bodies[0]["contents"][0]["parts"]
     assert parts[0]["inlineData"] == {"mimeType": "application/pdf", "data": base64.b64encode(b"%PDF-1.4").decode()}
@@ -66,7 +69,8 @@ def test_draft_profile_attaches_a_pdf_resume_and_returns_the_settings(monkeypatc
     assert profile == "## Summary\n\nA water person."
     assert settings["title_filter"].splitlines()[0] == "water quality analyst"
     assert settings["title_exclude"].splitlines() == ["sales"]
-    assert settings["vocabulary"].splitlines() == ["GIS", "SCADA", "Class B CDL", "pesticide applicator"]
+    assert settings["vocabulary"].splitlines() == ["GIS", "SCADA", "rust", "python", "SQL", "R",
+                                                    "Class B CDL", "pesticide applicator"]
     assert settings["max_picks"] == MAX_PICKS_DEFAULT
 
 
