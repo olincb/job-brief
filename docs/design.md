@@ -244,6 +244,11 @@ and no judgment is involved: dedup, title filters, the condense vocabulary,
 lookback, pick cap, frequency. A structured field is added only when a
 failure recurs and a field would have prevented it.
 
+Only the profile's Must-haves and Dealbreakers sections are hard filters.
+Every other section, and anything worded as a preference or a penalty, is
+weight on the score, in the user's own grade words with their conditions
+kept.
+
 ## Email
 
 SES over any Gmail route. The credential is send-only and project-owned,

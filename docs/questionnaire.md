@@ -134,7 +134,7 @@ pipeline setting it informs, and *shape:* the answer type.
 
 14. **Pay.** The lowest you would take and the number that would feel
     good, hourly or yearly. Which benefits would change the answer.
-    *feeds:* profile compensation floor and the exception band.
+    *feeds:* profile compensation floor and the number that would feel good.
     *shape:* two numbers and a phrase.
 
 15. **Companies, industries, or employers you will not work for.**
