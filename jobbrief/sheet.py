@@ -20,10 +20,11 @@ ANSWERS_HEADER = ["field", "experience", "resume", "tools", "certifications", "w
                   "terms", "physical", "pay", "avoid_employers", "about_you", "about_want",
                   "stretch", "per_listing", "checked_sources", "submitted"]
 # Settings is key/value: title_filter, title_exclude (one regex per line in the cell),
-# vocabulary (one literal term per line; blank keeps condense's software default),
-# lookback_days, max_picks. Signup writes the rows; init only lays the header. Frequency
-# and active live in the registry, not here, so the run can skip a non-send day without
-# opening the sheet.
+# vocabulary (one literal term per line), supplemental_titles, supplemental_excludes and
+# supplemental_vocabulary (the model's additions in the same forms, unioned with the typed
+# rows; may be absent), lookback_days, max_picks. With both vocabulary rows blank, condense
+# keeps its software default. Signup writes the rows; init only lays the header. Frequency and active live in the registry, not here, so
+# the run can skip a non-send day without opening the sheet.
 SETTINGS_HEADER = ["key", "value"]
 # Used when the Settings cell is blank; signup writes the same values.
 MAX_PICKS_DEFAULT = 15

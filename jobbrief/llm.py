@@ -55,17 +55,20 @@ def call_gemini(model, body, api_key, attempts):
     return None
 
 
-def generate(prompt, models, api_key, retries, json_output=False, pdf=None):
+def generate(prompt, models, api_key, retries, json_output=False, pdf=None, schema=None):
     """The one way the engine talks to the model. Tries each model in turn with the retry
     budget split evenly, so callers need no retry logic of their own: ranking on the daily
     run and drafting a profile at signup both come through here. 503 "model is overloaded"
     clusters on whichever model launched most recently and hits paid tiers too, so an
     older Flash as the fallback is the reliable escape hatch. `pdf`, when given, goes inline
-    ahead of the prompt, which is how a resume reaches the model at signup. Returns the
-    model's text, the model that served it, and the usage metadata."""
+    ahead of the prompt, which is how a resume reaches the model at signup. `schema`, a JSON
+    Schema dict, makes the reply JSON of that shape. Returns the model's text, the model that
+    served it, and the usage metadata."""
     config = {"temperature": 0.2}
-    if json_output:
+    if json_output or schema:
         config["responseMimeType"] = "application/json"
+    if schema:
+        config["responseJsonSchema"] = schema
     parts = [{"text": prompt}]
     if pdf:
         parts.insert(0, {"inlineData": {"mimeType": "application/pdf", "data": base64.b64encode(pdf).decode()}})

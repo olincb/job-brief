@@ -28,9 +28,12 @@ STASH_TTL = 3600  # seconds; an abandoned signup should not sit in memory for th
 SHEET_TITLE = "Job Brief"
 SHEET_URL = "https://docs.google.com/spreadsheets/d/{}"
 RECENT_RUNS = 10
-EDITABLE_SETTINGS = ["title_filter", "title_exclude", "max_picks"]  # lookback_days stays as signup wrote it
+# lookback_days stays as signup wrote it.
+EDITABLE_SETTINGS = ["title_filter", "title_exclude", "supplemental_titles", "supplemental_excludes",
+                     "vocabulary", "supplemental_vocabulary", "max_picks"]
 # A retake redraws the answer-derived settings; the pick cap and lookback stay where the user left them.
-RETAKE_SETTINGS = ["title_filter", "title_exclude", "vocabulary"]
+RETAKE_SETTINGS = ["title_filter", "title_exclude", "vocabulary", "supplemental_titles", "supplemental_excludes",
+                   "supplemental_vocabulary"]
 
 _allowed = (0.0, frozenset())
 _stash = {}

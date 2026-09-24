@@ -47,22 +47,27 @@ def runs_row(today, outcome, emailed, candidates=0, picks=0, model="", tokens=""
     return [str(today), candidates, picks, len(SKIPPED), outcome, emailed, model, tokens, sources, note]
 
 
+def settings_lines(settings, *keys):
+    """The non-blank lines of the named Settings cells as one list; a missing key reads as blank."""
+    return [line for key in keys for line in settings.get(key, "").splitlines() if line.strip()]
+
+
 def run_user(token, user, pool, api_key, today):
     """One user end to end, from their tabs to their email, returning their Runs row.
     Postings and Seen are appended only after the send succeeds, so the sheet and the inbox
     always agree."""
     sheet_id = user["sheet_id"]
     settings = {row["key"]: row["value"] for row in read_tab(token, sheet_id, "Settings")}
-    title_filter = [line for line in settings["title_filter"].splitlines() if line.strip()]
+    title_filter = settings_lines(settings, "title_filter", "supplemental_titles")
     if not title_filter:
         return runs_row(today, "skipped", "no", note="empty filter")
     runs_rows = read_tab(token, sheet_id, "Runs")
     seen = {row["url"] for row in read_tab(token, sheet_id, "Seen")}
     pipeline = read_tab(token, sheet_id, "Postings")
     candidates, capped = select_candidates(
-        pool, seen, title_filter, settings["title_exclude"].splitlines(),
+        pool, seen, title_filter, settings_lines(settings, "title_exclude", "supplemental_excludes"),
         lookback(int(settings.get("lookback_days") or LOOKBACK_DAYS_DEFAULT), runs_rows, today))
-    vocabulary = [line.strip() for line in settings.get("vocabulary", "").splitlines() if line.strip()]
+    vocabulary = [line.strip() for line in settings_lines(settings, "vocabulary", "supplemental_vocabulary")]
     # Enrich a copy: the pool is shared, so enriching in place would re-fetch it for the next user.
     candidates = enrich([dict(job) for job in candidates], vocabulary)
     prompt = build_prompt(DATA.joinpath("prompt.md").read_text(), read_cell(token, sheet_id, "Profile!A1"),
