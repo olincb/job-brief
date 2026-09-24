@@ -67,11 +67,13 @@ in several scores highest.
 
 ## Experience requirements
 
-From `experience`, `entry_level`, and `stretch`, the required-years bands and
-their effect: which range is an easy match, which a solid match, and which
-calls for extra scrutiny of every other requirement. `stretch` sets how far
-above their years the scrutiny band runs. Say which title words in this field
-imply a level inside or beyond these bands when a posting gives no years, and
+The realism rule, anchored to the years in `experience`; a title ahead of
+those years does not move it. Postings asking for up to their years are an
+easy match; up to one year more, a solid match; two to three years more call
+for extra scrutiny of every other requirement and are the stretch roles that
+`stretch` shows, labels, or leaves out; anything further is a dealbreaker.
+Write the bands out with the numbers. Say which title words in this field
+imply a level inside or beyond the bands when a posting gives no years, and
 whether entry-level roles are targets (`yes`) or a minus (`maybe`).
 
 ## Must-haves
@@ -98,8 +100,9 @@ kept whole.
 ## Compensation
 
 The floor, the number that would feel good, and the benefits that move either,
-in the units and terms the answer uses. A posting that states no salary is
-never penalized for it.
+in the units and terms the answer uses, with the qualifiers the answer gives
+the numbers and no others. A posting that states no salary is never penalized
+for it.
 
 ## How to write the brief
 

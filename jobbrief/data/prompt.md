@@ -18,6 +18,9 @@ Your job:
 - Score every candidate posting for fit from 0 to 5. 5 means apply today.
   0 means a hard filter failed. Be strict: most postings should score 0 to 2.
   A posting that states no salary is never penalized for it.
+  Weigh a posting's required years against the profile's Experience
+  requirements; more years than the candidate has is never an easy match,
+  whatever the title.
 - Pick the postings scoring 3 or higher, up to the maximum given at the end
   of this prompt, best first.
 - For each pick, write a short reason naming the specific requirement or
