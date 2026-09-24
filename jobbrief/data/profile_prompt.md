@@ -95,14 +95,12 @@ Reply with one JSON object holding four fields:
   phrase that is so broad most titles contain it. Do not repeat a phrase
   they typed.
 - `title_excludes`: title phrases to drop beyond the ones in
-  `exclude_titles`: the other names boards use for a kind of role they said
-  they never want, and a level their years plainly rule out. A title
-  containing one of these is never shown, not even to be ranked, so a role
-  they would take only for the right match, or would rather avoid, is not
-  an exclude; the profile carries that judgment. Leave out any word that
-  also appears in a title they want. When unsure, leave it out: a posting
-  they never see costs more than one extra to rank, and an empty list is
-  fine.
+  `exclude_titles`: other board names for a kind of role they said they never
+  want, and a level their years plainly rule out. A title containing one is
+  never shown, not even ranked, so a role they would take only for the right
+  match, or would rather avoid, is not an exclude; the profile carries that
+  judgment. Leave out any word in a title they want. If unsure, omit it: a
+  missed posting costs more than an extra one to rank.
 - `vocabulary`: terms postings in their field use for the tools, licenses,
   and certifications they have or would get: the license's official name, a
   tool's common abbreviation, an adjacent certification. A long posting is
