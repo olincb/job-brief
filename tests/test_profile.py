@@ -1,12 +1,13 @@
 import base64
 import io
 import json
+import re
 import zipfile
 
 import pytest
 
 from jobbrief import llm
-from jobbrief.profile import build_prompt, docx_text, draft_profile, title_filters
+from jobbrief.profile import DATA, build_prompt, docx_text, draft_profile, title_filters
 from jobbrief.sheet import MAX_PICKS_DEFAULT
 
 
@@ -77,3 +78,10 @@ def test_draft_profile_attaches_a_pdf_resume_and_returns_the_settings(monkeypatc
 def test_a_resume_that_is_neither_a_pdf_nor_a_docx_is_refused():
     with pytest.raises(ValueError):
         draft_profile(ANSWERS, ["primary"], "key", 2, resume=("resume.doc", b"\xd0\xcf\x11\xe0"))
+
+
+def test_the_sections_the_ranking_prompt_treats_as_hard_are_headings_the_profile_gets():
+    ranking = DATA.joinpath("prompt.md").read_text()
+    headings = re.findall(r"^## (.+)$", DATA.joinpath("profile_prompt.md").read_text(), re.M)
+    hard = re.search(r"Treat only\s+the (.+?) sections as hard filters", ranking).group(1)
+    assert set(hard.split(" and ")) <= set(headings)
