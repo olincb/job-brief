@@ -128,9 +128,10 @@ app just made.
 ### Daily run
 
 1. Fetch every source once into a raw pool: company boards, NEOGOV agency
-   boards, Climatebase, Josh's Water Jobs, Hacker News, RemoteOK, Himalayas,
-   Apple, and whatever is added later. An empty pool with every source
-   skipped is the fetch failing, and no user is run on it.
+   boards, Climatebase, Josh's Water Jobs, Washington Conservation Action,
+   Hacker News, RemoteOK, We Work Remotely, Himalayas, Apple, and whatever is
+   added later. An empty pool with every source skipped is the fetch failing,
+   and no user is run on it.
 2. For each user in `Allowed` whose frequency makes today a send day: read their tabs,
    drop postings already in `Seen` or older than the lookback (stretched
    to cover the gap since their last send), apply their title filters,
@@ -181,7 +182,14 @@ Guardrails:
   is not mechanized: what a level word implies reads differently in every
   field, so it stays a judgment the profile carries.
 - Candidates per user per run are capped at 150, the newest kept; hitting
-  the cap is flagged as a filter that is too loose.
+  the cap is flagged as a filter that is too loose. Over the cap no one board
+  takes more than a third of it while other boards have postings to fill the
+  rest, so a board the size of Cloudflare's cannot crowd out every other
+  source. A board is the posting id's first two segments
+  (`greenhouse:cloudflare`), so company boards on one ATS count separately,
+  feeds whose ids carry the company (RemoteOK, Himalayas, We Work Remotely,
+  Climatebase) count per company, and the Hacker News thread, Apple, and each
+  WordPress site count as one.
 
 Coverage is measured, not configured. Per user per run: candidate count,
 pick count, and which source each pick came from, all of which the run
@@ -205,7 +213,13 @@ and city governments post (governmentjobs.com, careers.wa.gov). Each agency
 is its own board, listed by slug in `sources.base.json` the way company
 boards are. Josh's Water Jobs is the water-sector board (utilities, water
 resources, wastewater, water quality), searched by term because it posts
-about fifty a day worldwide.
+about fifty a day worldwide. Washington Conservation Action's board carries
+its own environmental advocacy openings. Both are WordPress
+sites, read through the WordPress REST API and listed in `sources.base.json`
+as site and post type, with a search term on a board too busy to read whole.
+
+Remote software postings also come from We Work Remotely's programming
+category, read from its RSS feed.
 
 ## Preferences: prose over schema
 

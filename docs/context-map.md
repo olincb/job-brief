@@ -19,7 +19,7 @@ is added. The design and its reasons are in `design.md`; this is only a map.
 - `__main__.py` — hands off to `cli.main`.
 - `cli.py` — `python -m jobbrief`: argparse, the `run` subcommand that calls into `run.py`, and the stage subcommands that debug one user from files under `--out`. The only module that touches the filesystem, and with `mail.py` one of the two that read the environment.
 - `mail.py` — `send(to, subject, html, text)`: one email through SES over SMTP (multipart/alternative, STARTTLS on 587), plus the two failure-notice bodies. Reads the SES credentials and sender from the environment.
-- `sources.py` — where postings come from: HTTP get, HTML stripping, `condense`, one generator per source, the enrichers, and `select_candidates` over the fetched pool, newest first under the candidate cap.
+- `sources.py` — where postings come from: HTTP get, HTML stripping, `condense`, one generator per source (one shared by every WordPress board), the enrichers, and `select_candidates` over the fetched pool, newest first under the candidate cap, with at most a third of it from one board while other boards can fill the rest.
 - `llm.py` — `generate`, the one Gemini call with retries and the fallback model inside it, and the tolerant JSON parser.
 - `rank.py` — `build_prompt` from template, profile, pipeline, and candidates; `finish` from the model's answer to the brief, the sheet rows, and picks per source.
 - `profile.py` — signup's model stage: `draft_profile` from an `Answers` row and an optional resume to the prose profile and the `Settings` values, with the docx-to-text step, the title filters, and the condense vocabulary behind it.
@@ -30,7 +30,7 @@ is added. The design and its reasons are in `design.md`; this is only a map.
 - `find_boards.py` — operator tool: turns company names into verified ATS slugs for `sources.base.json`.
 - `data/prompt.md` — instructions to the model: scoring rubric, brief layout, JSON contract.
 - `data/profile_prompt.md` — instructions to the model that drafts a profile: what to trust, what the Answers columns hold, and the profile's sections.
-- `data/sources.base.json` — shared board slugs per ATS, NEOGOV agency slugs, Climatebase queries, Josh's Water Jobs search terms, and the whole-feed sources everyone runs against.
+- `data/sources.base.json` — shared board slugs per ATS, NEOGOV agency slugs, Climatebase queries, WordPress boards as site and post type with an optional search term, We Work Remotely categories, and the whole-feed sources everyone runs against.
 
 ## `jobbrief/web/` — the web app
 
@@ -53,7 +53,7 @@ Verify command: `python -m pytest`. Runs with no network; see `tests/README.md`.
 
 - `README.md` — the fixture layout, the no-network guarantee, and how to re-record.
 - `conftest.py` — blocks `urlopen` for every test; `fixture_dir` and `out` fixtures.
-- `record_fixtures.py` — the deliberate network step: records boards as returned, NEOGOV's map key redacted, and picks the condense posting.
+- `record_fixtures.py` — the deliberate network step: records boards as returned, JSON or an RSS feed's XML, NEOGOV's map key redacted, and picks the condense posting.
 - `test_condense.py` — years, remote, and pay lines survive condensing; a vocabulary stands in for the stack tier: it keeps a license line and a C++ line, and drops a stack word it omits.
 - `test_render.py` — numbered picks stay one list across blank lines; links, bold, sheet footer.
 - `test_heartbeat.py` — the heartbeat rule over synthetic Runs rows.
@@ -64,9 +64,10 @@ Verify command: `python -m pytest`. Runs with no network; see `tests/README.md`.
 - `test_profile.py` — the generator prompt from an invented `Answers` row, the title filters as typed, the vocabulary row, a Word resume to text, and the PDF attachment.
 - `test_rank.py` — prompt assembly, the retry budget across both models, the model's picks into sheet rows, and picks per source ordered by count then name.
 - `test_mail.py` — the message builder's headers and multipart order, and the failure notices, without opening an SMTP connection.
-- `test_fetch.py` — Greenhouse, NEOGOV and Josh's Water Jobs fetchers against their recordings, an unreachable board skipped, a transient failure retried once and a 404 not, every shared source having a fetcher, the NEOGOV enricher through `enrich`, one id for a posting two search terms find, title filters, Seen dedup, and the cap keeping the newest and flagging itself.
+- `test_fetch.py` — Greenhouse, NEOGOV, WordPress and We Work Remotely fetchers against their recordings, an unreachable board and a We Work Remotely feed that is not XML skipped, a transient failure retried once and a 404 not, every shared source having a fetcher, the NEOGOV enricher through `enrich`, one id for a posting two search terms find, title filters, Seen dedup, and the cap keeping the newest, limiting any one board to its share only while other boards can fill the rest, and flagging itself.
 - `fixtures/greenhouse/gradle.json` — one Greenhouse board response, saved unmodified.
 - `fixtures/neogov/whatcomcounty.json` — one NEOGOV agency response, saved unmodified but for its map key.
-- `fixtures/joshswaterjobs/idaho.json` — one Josh's Water Jobs search response, saved unmodified.
+- `fixtures/wordpress/joshswaterjobs-idaho.json` — one Josh's Water Jobs search response, saved unmodified.
+- `fixtures/weworkremotely/remote-programming-jobs.xml` — one We Work Remotely category feed, saved unmodified.
 - `fixtures/posting.txt` — one posting as `condense` receives it.
 - `fixtures/brief.md` — a hand-written sample brief with invented companies.

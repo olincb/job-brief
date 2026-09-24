@@ -1,5 +1,5 @@
 {
-  "_comment": "Slugs are the company identifier in each ATS board URL. greenhouse: boards.greenhouse.io/<slug>. lever: jobs.lever.co/<slug>. ashby: jobs.ashbyhq.com/<slug>. Every slug here was verified to return that company's postings on 2026-09-03. neogov: governmentjobs.com/careers/<slug>, a public agency rather than a company, verified 2026-09-23: washington is the state (careers.wa.gov), cobwa the City of Bellingham, skagitwa Skagit County. climatebase entries are search queries, not slugs; each returns its top 100. joshswaterjobs entries are search queries too; each returns its newest 20. hackernews, remoteok, himalayas, and apple are whole feeds; their values are ignored. apple is a whole feed too: every US posting Apple marks home-office eligible. Boards that 404 are skipped. Title filters are per user and arrive as arguments to fetch, not from this file.",
+  "_comment": "Slugs are the company identifier in each ATS board URL. greenhouse: boards.greenhouse.io/<slug>. lever: jobs.lever.co/<slug>. ashby: jobs.ashbyhq.com/<slug>. Every slug here was verified to return that company's postings on 2026-09-03, except ashby's linear, confluent, and neon, verified 2026-09-23. neogov: governmentjobs.com/careers/<slug>, a public agency rather than a company, verified 2026-09-23: washington is the state (careers.wa.gov), cobwa the City of Bellingham, skagitwa Skagit County. climatebase entries are search queries, not slugs; each returns its top 100. wordpress entries are <site>/<post type>, with ?search=<term> to narrow a busy board; each returns its newest 20. joshswaterjobs.com is Josh's Water Jobs, waconservationaction.org Washington Conservation Action. weworkremotely entries are category feeds: weworkremotely.com/categories/<category>.rss. hackernews, remoteok, himalayas, and apple are whole feeds; their values are ignored. apple is every US posting Apple marks home-office eligible. Boards that 404 are skipped. Title filters are per user and arrive as arguments to fetch, not from this file.",
   "greenhouse": [
     "buildkite",
     "circleci",
@@ -68,6 +68,7 @@
     "docker",
     "semgrep",
     "graphite",
+    "linear",
     "flox",
     "cursor",
     "sentry",
@@ -82,10 +83,12 @@
     "anyscale",
     "langchain",
     "clickhouse",
+    "confluent",
     "openai",
     "speakeasy",
     "kong",
     "supabase",
+    "neon",
     "redis",
     "goteleport",
     "oso",
@@ -154,18 +157,22 @@
     "platform engineer",
     "infrastructure engineer"
   ],
-  "joshswaterjobs": [
-    "Washington",
-    "Oregon",
-    "Puget Sound",
-    "Bellingham",
-    "remote"
+  "wordpress": [
+    "joshswaterjobs.com/jwj_job?search=Washington",
+    "joshswaterjobs.com/jwj_job?search=Oregon",
+    "joshswaterjobs.com/jwj_job?search=Puget Sound",
+    "joshswaterjobs.com/jwj_job?search=Bellingham",
+    "joshswaterjobs.com/jwj_job?search=remote",
+    "waconservationaction.org/job"
   ],
   "hackernews": [
     "whoishiring"
   ],
   "remoteok": [
     "latest"
+  ],
+  "weworkremotely": [
+    "remote-programming-jobs"
   ],
   "himalayas": [
     "latest"

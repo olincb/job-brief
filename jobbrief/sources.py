@@ -3,6 +3,7 @@ the common shape from posting(); a source that is unreachable is skipped, not fa
 the per-user selection over the fetched pool and condense, which trims a posting to the
 lines a profile filters on."""
 
+import email.utils
 import html
 import http.client
 import json
@@ -11,7 +12,9 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections import Counter
 from datetime import datetime, timedelta, timezone
+from xml.etree import ElementTree
 
 
 SKIPPED = []  # sources that failed to fetch this run, for the Runs row and heartbeat
@@ -184,19 +187,23 @@ def fetch_neogov(agency):
         )
 
 
-def joshswaterjobs_url(term):
-    params = urllib.parse.urlencode({"search": term, "per_page": 20, "orderby": "date", "order": "desc",
-                                     "_fields": "id,title,link,date_gmt,content"})
-    return "https://joshswaterjobs.com/wp-json/wp/v2/jwj_job?" + params
+def wordpress_url(board):
+    """The REST URL for a `sources.base.json` wordpress entry, `site/post_type` with an
+    optional `?search=term`."""
+    board = urllib.parse.urlsplit("//" + board)
+    params = {**dict(urllib.parse.parse_qsl(board.query)), "per_page": 20, "orderby": "date", "order": "desc",
+              "_fields": "id,title,link,date_gmt,content"}
+    return f"https://{board.netloc}/wp-json/wp/v2{board.path}?" + urllib.parse.urlencode(params)
 
 
-def fetch_joshswaterjobs(term):
-    """The newest 20 Josh's Water Jobs postings matching one search term; the board posts
+def fetch_wordpress(board):
+    """The newest 20 posts of one job post type on a WordPress site, labelled with the
+    site's first DNS label so picks per source name the board. Josh's Water Jobs posts
     about fifty a day worldwide, so it is searched rather than read whole. Titles name no
     organization and location is free text in the body, so the description carries both."""
-    for job in get_json(joshswaterjobs_url(term)) or []:
+    for job in get_json(wordpress_url(board)) or []:
         yield posting(
-            "joshswaterjobs", "", job["id"], strip_html(job["title"]["rendered"]), "see posting",
+            board.split(".")[0], "", job["id"], strip_html(job["title"]["rendered"]), "see posting",
             job["link"], job["date_gmt"] + "+00:00", strip_html(job["content"]["rendered"]),
         )
 
@@ -241,6 +248,28 @@ def fetch_remoteok(_):
         yield posting(
             "remoteok", job.get("company", ""), job["id"], job.get("position", ""), location or "Worldwide",
             job["url"], job.get("date"), " | ".join(filter(None, [salary, strip_html(job.get("description"))])),
+        )
+
+
+def fetch_weworkremotely(category):
+    """The newest postings in one We Work Remotely category's RSS feed, whose titles read
+    "Company: Title"."""
+    url = f"https://weworkremotely.com/categories/{category}.rss"
+    feed = get(url)
+    if not feed:
+        return
+    try:
+        items = ElementTree.fromstring(feed).iter("item")
+    except ElementTree.ParseError as exc:
+        print(f"skip {url}: {exc}", file=sys.stderr)
+        return
+    for item in items:
+        company, _, title = item.findtext("title").partition(": ")
+        link = item.findtext("link")
+        yield posting(
+            "weworkremotely", company, link, title, item.findtext("region"),
+            link, email.utils.parsedate_to_datetime(item.findtext("pubDate")).isoformat(),
+            strip_html(item.findtext("description")),
         )
 
 
@@ -329,12 +358,14 @@ def enrich_neogov(job):
 ENRICHERS = {"climatebase": enrich_climatebase, "apple": enrich_apple, "neogov": enrich_neogov}
 
 
-# Company-board fetchers take an ATS slug, neogov an agency slug. climatebase and joshswaterjobs take a search query.
+# Company-board fetchers take an ATS slug, neogov an agency slug, climatebase a search query,
+# wordpress a site and post type with an optional search term, and weworkremotely a category.
 # hackernews, remoteok, himalayas, and apple are single feeds and ignore their value.
 FETCHERS = {
     "greenhouse": fetch_greenhouse, "lever": fetch_lever, "ashby": fetch_ashby, "neogov": fetch_neogov,
-    "climatebase": fetch_climatebase, "joshswaterjobs": fetch_joshswaterjobs, "hackernews": fetch_hackernews,
-    "remoteok": fetch_remoteok, "himalayas": fetch_himalayas, "apple": fetch_apple,
+    "climatebase": fetch_climatebase, "wordpress": fetch_wordpress, "hackernews": fetch_hackernews,
+    "remoteok": fetch_remoteok, "weworkremotely": fetch_weworkremotely, "himalayas": fetch_himalayas,
+    "apple": fetch_apple,
 }
 
 
@@ -347,13 +378,16 @@ def is_recent(iso, lookback_days):
 
 # More than this many condensed postings crowds out the profile and pipeline in the model request.
 CANDIDATE_CAP = 150
+# A board posting hundreds of matching titles a week would otherwise fill the cap by itself.
+BOARD_SHARE = CANDIDATE_CAP // 3
 
 
 def select_candidates(postings, seen_urls, title_filter, title_exclude, lookback_days):
     """One user's view of the pool as `(candidates, capped)`: unseen, recent, and passing
     their title filters. A title must match one filter pattern and no exclude pattern,
     case-insensitively. Overlapping sources can return the same posting, so the result is
-    keyed by id."""
+    keyed by id. Over the cap the newest are kept, at most `BOARD_SHARE` from one board
+    until the other boards run out, the board being the id's first two fields."""
     title_ok = re.compile("|".join(title_filter or []) or ".", re.IGNORECASE)
     title_bad = re.compile("|".join(title_exclude or []) or "(?!)", re.IGNORECASE)
     candidates = {}
@@ -367,7 +401,14 @@ def select_candidates(postings, seen_urls, title_filter, title_exclude, lookback
         return selected, False
     # ISO timestamps order correctly as strings, and a posting with no date sorts oldest.
     selected.sort(key=lambda job: job["posted_at"] or "", reverse=True)
-    return selected[:CANDIDATE_CAP], True
+    per_board = Counter()
+    within_share, turned_away = [], []
+    for job in selected:
+        board = ":".join(job["id"].split(":", 2)[:2])
+        per_board[board] += 1
+        (within_share if per_board[board] <= BOARD_SHARE else turned_away).append(job)
+    kept = {job["id"] for job in (within_share + turned_away)[:CANDIDATE_CAP]}
+    return [job for job in selected if job["id"] in kept], True
 
 
 def enrich(candidates, vocabulary=None):
