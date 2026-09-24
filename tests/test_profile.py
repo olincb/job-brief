@@ -86,9 +86,9 @@ def test_draft_profile_attaches_a_pdf_resume_and_returns_the_settings(monkeypatc
     assert settings["vocabulary"].splitlines() == ["GIS", "scikit-learn", "Node.js", "C++", "CI/CD",
                                                     "Google Sheets", "R", "Class B CDL", "pesticide applicator"]
     # The model's parentheses are escaped so the phrase matches literally.
-    assert settings["suggested_titles"].splitlines() == ["Water Resources Engineer", r"Hydrologist \(Senior\)"]
-    assert settings["suggested_excludes"] == "Sales Engineer"
-    assert settings["suggested_vocabulary"].splitlines() == ["Water Distribution Operator", "WDM"]
+    assert settings["supplemental_titles"].splitlines() == ["Water Resources Engineer", r"Hydrologist \(Senior\)"]
+    assert settings["supplemental_excludes"] == "Sales Engineer"
+    assert settings["supplemental_vocabulary"].splitlines() == ["Water Distribution Operator", "WDM"]
     assert settings["max_picks"] == MAX_PICKS_DEFAULT
 
 

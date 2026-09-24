@@ -58,16 +58,16 @@ def run_user(token, user, pool, api_key, today):
     always agree."""
     sheet_id = user["sheet_id"]
     settings = {row["key"]: row["value"] for row in read_tab(token, sheet_id, "Settings")}
-    title_filter = settings_lines(settings, "title_filter", "suggested_titles")
+    title_filter = settings_lines(settings, "title_filter", "supplemental_titles")
     if not title_filter:
         return runs_row(today, "skipped", "no", note="empty filter")
     runs_rows = read_tab(token, sheet_id, "Runs")
     seen = {row["url"] for row in read_tab(token, sheet_id, "Seen")}
     pipeline = read_tab(token, sheet_id, "Postings")
     candidates, capped = select_candidates(
-        pool, seen, title_filter, settings_lines(settings, "title_exclude", "suggested_excludes"),
+        pool, seen, title_filter, settings_lines(settings, "title_exclude", "supplemental_excludes"),
         lookback(int(settings.get("lookback_days") or LOOKBACK_DAYS_DEFAULT), runs_rows, today))
-    vocabulary = [line.strip() for line in settings_lines(settings, "vocabulary", "suggested_vocabulary")]
+    vocabulary = [line.strip() for line in settings_lines(settings, "vocabulary", "supplemental_vocabulary")]
     # Enrich a copy: the pool is shared, so enriching in place would re-fetch it for the next user.
     candidates = enrich([dict(job) for job in candidates], vocabulary)
     prompt = build_prompt(DATA.joinpath("prompt.md").read_text(), read_cell(token, sheet_id, "Profile!A1"),

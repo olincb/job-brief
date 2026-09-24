@@ -98,7 +98,7 @@ Drive until the last step:
    detail to quote rather than summarize, and contact details are never
    copied into the profile. Derive the title filters and the condense
    vocabulary from the answers. The same call returns schema-enforced JSON:
-   the profile and three lists that widen them, suggested titles, excludes,
+   the profile and three lists that widen them, supplemental titles, excludes,
    and vocabulary. Keep answers, profile, and settings in the web process,
    keyed by the session; discard the resume bytes. A model failure, or a
    reply that is not the schema's JSON, stops here, before anything exists.
@@ -155,11 +155,11 @@ Logs carry sheet ids and counts, never addresses or profile text.
 
 ### Settings and exit
 
-Profile text in an editable box, title filters, the suggested titles,
-excludes, and vocabulary, frequency (daily, weekdays, weekly), pick cap,
-pause, and "retake the questionnaire," which regenerates the profile,
-filters, and suggestions from fresh answers. Recent `Runs` rows are shown.
-Frequency and pause write to the registry row, not the user's sheet, so the
+Profile text in an editable box, title filters and vocabulary (typed and
+supplemental), frequency (daily, weekdays, weekly), pick cap, pause, and
+"retake the questionnaire," which regenerates the profile, filters,
+vocabulary, and their supplemental lists from fresh answers. Recent `Runs`
+rows are shown. Frequency and pause write to the registry row, not the user's sheet, so the
 daily run decides a non-send day without opening the sheet; the rest write
 to `Settings`. Weekly users get their brief on Monday. The pick cap defaults
 to 15 and the lookback to 7 days; a blank `Settings` cell means the default.
@@ -180,16 +180,17 @@ run, not per user.
 
 Guardrails:
 
-- A user with no title filter, typed or suggested, is not run. Typed
-  filters are the phrases from questions 7 and 8 as written. Suggested ones
-  are drafted at signup by the profile model from the field, the years, the
-  most recent title, and questions 7, 8, and 10, so a user who typed
-  "hydrologist" also sees "Water Resources Engineer." They sit in their own
-  `Settings` rows, `suggested_titles` and `suggested_excludes`; the run takes
-  the union of each pair. Both are editable, and a retake redraws the
-  suggested ones. Seniority is not mechanized: what a level word implies
-  reads differently in every field, so the engine keeps no table of it and
-  the model's judgment reaches the filters only through the drafted phrases.
+- A user with no title filter, typed or supplemental, is not run. Typed
+  filters are the phrases from questions 7 and 8 as written. Supplemental
+  ones are drafted at signup by the profile model from the field, the years,
+  the most recent title, and questions 7, 8, and 10, so a user who typed
+  "hydrologist" also sees "Water Resources Engineer" postings. They sit in
+  their own `Settings` rows, `supplemental_titles` and
+  `supplemental_excludes`; the run takes the union of each pair. Both are
+  editable, and a retake redraws the supplemental ones. Seniority is not
+  mechanized: what a level word implies reads differently in every field, so
+  the engine keeps no table of it and the model's judgment reaches the
+  filters only through the drafted phrases.
 - Candidates per user per run are capped at 150, the newest kept; hitting
   the cap is flagged as a filter that is too loose. Over the cap no one board
   takes more than a third of it while other boards have postings to fill the
@@ -216,7 +217,7 @@ in another field. The vocabulary is per user, taken from the questionnaire's
 tools and certifications answers and stored in `Settings`, so a
 conservation-district posting's "pesticide applicator certification" reaches
 the model for the user it matters to. The drafting model adds a
-`suggested_vocabulary` row beside it with the terms postings in that field
+`supplemental_vocabulary` row beside it with the terms postings in that field
 use, such as a license's official name or a tool's common abbreviation; the
 run takes the union of the two.
 

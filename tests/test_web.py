@@ -53,8 +53,8 @@ STORED_SETTINGS = [{"key": key, "value": str(value)} for key, value in SETTINGS.
 RUNS = [dict(zip(RUNS_HEADER, [f"2026-09-{day:02d}", "40", "3", "0", "sent", "yes",
                                "flash", "1200", "greenhouse:3", ""])) for day in range(1, 13)]
 SAVE = {"profile": "New profile prose.", "title_filter": "water quality analyst",
-        "title_exclude": "sales", "suggested_titles": "hydrologist", "suggested_excludes": "",
-        "suggested_vocabulary": "WDM", "max_picks": "10", "frequency": "daily"}
+        "title_exclude": "sales", "supplemental_titles": "hydrologist", "supplemental_excludes": "",
+        "vocabulary": "GIS", "supplemental_vocabulary": "WDM", "max_picks": "10", "frequency": "daily"}
 PREVIOUS = dict({column: "" for column in ANSWERS_HEADER},
                 field="municipal water systems", experience="6 years", terms="on-call: no",
                 physical="long drives", per_listing="why it fits you", submitted="2026-09-01")
@@ -308,8 +308,8 @@ def test_saving_writes_the_profile_the_settings_and_the_registry_row(client, mon
     # lookback_days is not on the page, and the save leaves it as it was.
     assert written_to(written, "Settings!A2") == [["title_filter", "hydrologist"], ["title_exclude", "sales"],
                                                   ["lookback_days", "3"], ["max_picks", "5"],
-                                                  ["suggested_titles", "hydrologist"], ["suggested_excludes", ""],
-                                                  ["suggested_vocabulary", "WDM"]]
+                                                  ["supplemental_titles", "hydrologist"], ["supplemental_excludes", ""],
+                                                  ["vocabulary", "GIS"], ["supplemental_vocabulary", "WDM"]]
     # Row 3 of the registry: the second user under the header.
     assert written_to(written, "Users!A3") == [[USER, "their-sheet-id", "yes", "daily", "2026-01-02"]]
 
@@ -336,8 +336,8 @@ def test_retake_prefills_the_form_and_rewrites_the_answers_without_touching_driv
     assert re.search(r'value="long drives"\s+checked', page)
     assert re.search(r'name="terms-1" value="no"\s+checked', page)  # on-call, as it was answered
 
-    redrawn = dict(SETTINGS, title_filter="hydrologist", vocabulary="GIS", suggested_titles="hydrologist II",
-                   suggested_excludes="intern", suggested_vocabulary="WDM", lookback_days=9, max_picks=99)
+    redrawn = dict(SETTINGS, title_filter="hydrologist", vocabulary="GIS", supplemental_titles="hydrologist II",
+                   supplemental_excludes="intern", supplemental_vocabulary="WDM", lookback_days=9, max_picks=99)
     draft_profile, drafted = drafts("## Summary\n\nA redrafted person.", settings=redrawn)
     calls = fake_sheets(monkeypatch)
     response = submit(client, monkeypatch, draft_profile)
@@ -346,11 +346,11 @@ def test_retake_prefills_the_form_and_rewrites_the_answers_without_touching_driv
     written = value_writes(calls)
     assert written_to(written, "Answers!A2")[0][0] == FORM["field"]
     assert written_to(written, "Profile!A1") == [["## Summary\n\nA redrafted person."]]
-    # The filters, vocabulary, and suggestions are redrawn; the pick cap and lookback are the user's, not the model's.
+    # The filters, vocabulary, and supplemental lists are redrawn; the pick cap and lookback are the user's, not the model's.
     assert written_to(written, "Settings!A2") == [["title_filter", "hydrologist"], ["title_exclude", "sales"],
                                                   ["lookback_days", "3"], ["max_picks", "10"], ["vocabulary", "GIS"],
-                                                  ["suggested_titles", "hydrologist II"], ["suggested_excludes", "intern"],
-                                                  ["suggested_vocabulary", "WDM"]]
+                                                  ["supplemental_titles", "hydrologist II"], ["supplemental_excludes", "intern"],
+                                                  ["supplemental_vocabulary", "WDM"]]
     # No second sheet, no second consent, and the run's history is untouched.
     assert not any(url.endswith("/spreadsheets") or "/permissions" in url for _, url, _, _ in calls)
     assert {where for where, _ in written} == {"Answers!A2", "Profile!A1", "Settings!A2"}

@@ -11,29 +11,40 @@ editable there too; this page is the short way in.</p>
 <textarea id="profile" name="profile" rows="16">{{ profile }}</textarea>
 
 <label for="title_filter">Titles to look for</label>
-<span class="hint">One per line, as a regular expression. A posting whose title matches
-any of these, or any suggested title below, is shown to the model. With both lists empty
-there is no brief.</span>
+<span class="hint">Words or phrases, one per line. A posting is shown to the model when
+its title contains any of these, or any supplemental title below, ignoring capitals. With
+both lists empty there is no brief. Advanced: each line is a regular expression, so
+<code>engineer|scientist</code> matches either word, and a backslash matches a symbol as
+itself, as in <code>C\+\+</code>.</span>
 <textarea id="title_filter" name="title_filter" rows="6">{{ settings.title_filter }}</textarea>
 
 <label for="title_exclude">Titles to drop</label>
-<span class="hint">One per line. Checked first: a match here, or in the suggested drops
-below, is never shown.</span>
+<span class="hint">Words or phrases, one per line, matched the same way. Checked first:
+a title containing any of these, or any supplemental drop below, is never shown.</span>
 <textarea id="title_exclude" name="title_exclude" rows="6">{{ settings.title_exclude }}</textarea>
 
-<label for="suggested_titles">Suggested titles to look for</label>
-<span class="hint">One per line, as a regular expression. Drafted from your answers and resume,
-used alongside yours, and redrawn when you retake the questionnaire.</span>
-<textarea id="suggested_titles" name="suggested_titles" rows="6">{{ settings.suggested_titles }}</textarea>
+<label for="supplemental_titles">Supplemental titles to look for</label>
+<span class="hint">Words or phrases, one per line, matched the same way. Drafted from your
+answers and resume, used alongside yours, and redrawn when you retake the questionnaire.</span>
+<textarea id="supplemental_titles" name="supplemental_titles" rows="6">{{ settings.supplemental_titles }}</textarea>
 
-<label for="suggested_excludes">Suggested titles to drop</label>
-<span class="hint">One per line, as a regular expression. Drafted and redrawn the same way.</span>
-<textarea id="suggested_excludes" name="suggested_excludes" rows="6">{{ settings.suggested_excludes }}</textarea>
+<label for="supplemental_excludes">Supplemental titles to drop</label>
+<span class="hint">Words or phrases, one per line, matched the same way. Drafted and redrawn
+like the supplemental titles above.</span>
+<textarea id="supplemental_excludes" name="supplemental_excludes" rows="6">{{ settings.supplemental_excludes }}</textarea>
 
-<label for="suggested_vocabulary">Suggested terms to keep</label>
-<span class="hint">One per line, as written. A line of a long posting that names one of these
-reaches the model, alongside the tools and licenses you listed.</span>
-<textarea id="suggested_vocabulary" name="suggested_vocabulary" rows="6">{{ settings.suggested_vocabulary }}</textarea>
+<label for="vocabulary">Requirement keywords</label>
+<span class="hint">Words or phrases, one per line, as written: symbols like + need no
+backslash here. A long posting is shortened before the model sees it, and any line naming
+one of these terms is kept. Drafted from the tools and certifications you listed, and
+redrawn when you retake the questionnaire. With this and the supplemental keywords below
+both empty, a built-in list of common software terms is used.</span>
+<textarea id="vocabulary" name="vocabulary" rows="6">{{ settings.vocabulary }}</textarea>
+
+<label for="supplemental_vocabulary">Supplemental requirement keywords</label>
+<span class="hint">Words or phrases, one per line, as written. Drafted from your answers,
+redrawn when you retake the questionnaire, and used alongside the keywords above.</span>
+<textarea id="supplemental_vocabulary" name="supplemental_vocabulary" rows="6">{{ settings.supplemental_vocabulary }}</textarea>
 
 <fieldset>
 <legend>How often</legend>
@@ -45,6 +56,8 @@ reaches the model, alongside the tools and licenses you listed.</span>
 </fieldset>
 
 <label for="max_picks">Picks per brief</label>
+<span class="hint">The most postings in one brief. Leave blank for the default of
+{{ max_picks_default }}.</span>
 <input type="number" id="max_picks" name="max_picks" min="1" value="{{ settings.max_picks }}"
        placeholder="Default {{ max_picks_default }}">
 
@@ -52,6 +65,8 @@ reaches the model, alongside the tools and licenses you listed.</span>
 <legend>Pause</legend>
 <label class="choice"><input type="checkbox" name="paused"{% if paused %} checked{% endif %}>
 Hold my briefs until I come back</label>
+<span class="hint">Uncheck to start again. Your postings, history, and settings are
+kept.</span>
 </fieldset>
 
 <p><button type="submit">Save</button></p>
@@ -72,8 +87,8 @@ Hold my briefs until I come back</label>
 {% endif %}
 
 <h2>Other things</h2>
-<p><a href="{{ url_for('signup') }}">Retake the questionnaire</a> — regenerates your
-profile, title filters, and suggestions from fresh answers, and leaves your postings and
-history alone.</p>
+<p><a href="{{ url_for('signup') }}">Retake the questionnaire</a>: regenerates your
+profile, title filters, requirement keywords, and their supplemental lists from fresh
+answers, and leaves your postings and history alone.</p>
 <p><a href="{{ url_for('confirm_delete') }}">Remove me</a></p>
 {% endblock %}

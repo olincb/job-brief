@@ -1,6 +1,6 @@
 """Signup's model stage: the prose profile drafted from one user's questionnaire answers
 and resume, the title filters and condense vocabulary derived from the same answers, and
-the model's suggested additions to both. It runs before anything exists in the user's
+the model's additions to both. It runs before anything exists in the user's
 Drive, so a model failure ends signup with nothing to clean up."""
 
 import io
@@ -112,9 +112,9 @@ def draft_profile(answers, models, api_key, retries, resume=None):
         "title_filter": "\n".join(title_filter),
         "title_exclude": "\n".join(title_exclude),
         "vocabulary": "\n".join(vocabulary),
-        "suggested_titles": "\n".join(_pattern(phrase) for phrase in titles),
-        "suggested_excludes": "\n".join(_pattern(phrase) for phrase in excludes),
-        "suggested_vocabulary": "\n".join(terms),
+        "supplemental_titles": "\n".join(_pattern(phrase) for phrase in titles),
+        "supplemental_excludes": "\n".join(_pattern(phrase) for phrase in excludes),
+        "supplemental_vocabulary": "\n".join(terms),
         "lookback_days": LOOKBACK_DAYS_DEFAULT,
         "max_picks": MAX_PICKS_DEFAULT,
     }

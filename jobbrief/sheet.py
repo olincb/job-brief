@@ -20,8 +20,8 @@ ANSWERS_HEADER = ["field", "experience", "resume", "tools", "certifications", "w
                   "terms", "physical", "pay", "avoid_employers", "about_you", "about_want",
                   "stretch", "per_listing", "checked_sources", "submitted"]
 # Settings is key/value: title_filter, title_exclude (one regex per line in the cell),
-# vocabulary (one literal term per line), suggested_titles, suggested_excludes and
-# suggested_vocabulary (the model's additions in the same forms, unioned with the typed
+# vocabulary (one literal term per line), supplemental_titles, supplemental_excludes and
+# supplemental_vocabulary (the model's additions in the same forms, unioned with the typed
 # rows; may be absent), lookback_days, max_picks. With both vocabulary rows blank, condense
 # keeps its software default. Signup writes the rows; init only lays the header. Frequency and active live in the registry, not here, so
 # the run can skip a non-send day without opening the sheet.
