@@ -82,5 +82,29 @@ labeled as stretches or left out entirely, and which of the three per-listing
 fields — why it fits, what might disqualify them, salary when listed — each
 pick should carry. Name only the fields they asked for.
 
-Output the profile and nothing else: no preamble, no closing remark, no code
-fence.
+Reply with one JSON object holding four fields:
+
+- `profile_markdown`: the profile above, and nothing else: no preamble, no
+  closing remark, no code fence.
+- `title_keywords`: title phrases to search for beyond the ones in
+  `search_titles`, spelled the way job boards spell them. Draw on the field,
+  the years, the most recent title, `search_titles`, `exclude_titles`, and
+  `entry_level`: the other names a board gives the same work, and the level
+  words that fit their years. A posting whose title contains none of these
+  phrases or the ones they typed is never shown to them, so leave out a
+  phrase that is so broad most titles contain it. Do not repeat a phrase
+  they typed.
+- `title_excludes`: title phrases to drop beyond the ones in
+  `exclude_titles`: other board names for a kind of role they said they never
+  want, and a level their years plainly rule out. A title containing one is
+  never shown, not even ranked, so a role they would take only for the right
+  match, or would rather avoid, is not an exclude; the profile carries that
+  judgment. Leave out any word in a title they want. If unsure, omit it: a
+  missed posting costs more than an extra one to rank.
+- `vocabulary`: terms postings in their field use for the tools, licenses,
+  and certifications they have or would get: the license's official name, a
+  tool's common abbreviation, an adjacent certification. A long posting is
+  cut to the lines naming one of these, so leave out terms a posting outside
+  their field would use as often.
+
+Each list holds short phrases, one per item, and may be empty.

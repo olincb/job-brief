@@ -1,15 +1,16 @@
 """Signup's model stage: the prose profile drafted from one user's questionnaire answers
-and resume, and the title filters and condense vocabulary derived from the same answers.
-It runs before anything exists in the user's Drive, so a model failure ends signup with
-nothing to clean up."""
+and resume, the title filters and condense vocabulary derived from the same answers, and
+the model's additions to both. It runs before anything exists in the user's
+Drive, so a model failure ends signup with nothing to clean up."""
 
 import io
+import json
 import re
 import zipfile
 from importlib.resources import files
 from xml.etree import ElementTree
 
-from jobbrief.llm import generate
+from jobbrief.llm import ModelError, generate
 from jobbrief.sheet import ANSWERS_HEADER, LOOKBACK_DAYS_DEFAULT, MAX_PICKS_DEFAULT
 
 
@@ -18,6 +19,18 @@ DATA = files("jobbrief.data")
 # The Answers columns the model is shown: the resume filename and the submit date say
 # nothing about the person.
 ASKED = [column for column in ANSWERS_HEADER if column not in ("resume", "submitted")]
+
+# The drafting reply; its lists add to the typed title filters and condense vocabulary.
+PROFILE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "profile_markdown": {"type": "string"},
+        "title_keywords": {"type": "array", "items": {"type": "string"}},
+        "title_excludes": {"type": "array", "items": {"type": "string"}},
+        "vocabulary": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["profile_markdown", "title_keywords", "title_excludes", "vocabulary"],
+}
 
 WORD_XML = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 
@@ -44,7 +57,7 @@ def _phrases(cell):
 
 
 def _pattern(phrase):
-    """A typed phrase as one regex line of a Settings cell: escaped so `C++` is literal,
+    """A phrase as one regex line of a Settings cell: escaped so `C++` is literal,
     with spaces left alone so the line stays readable to whoever edits it."""
     return re.escape(phrase).replace("\\ ", " ")
 
@@ -71,8 +84,8 @@ def build_prompt(template, answers, resume_text=""):
 def draft_profile(answers, models, api_key, retries, resume=None):
     """One signup's Profile text and the Settings values to write beside it, from an Answers
     row and an optional resume as `(filename, bytes)`. Raises ValueError for a resume that is
-    neither a PDF nor a .docx, and `generate` raises ModelError when every model attempt
-    fails; both leave signup with nothing written."""
+    neither a PDF nor a .docx, and ModelError when every model attempt fails or the reply is
+    not the schema's JSON; both leave signup with nothing written."""
     pdf, resume_text = None, ""
     if resume:
         filename, data = resume
@@ -83,7 +96,14 @@ def draft_profile(answers, models, api_key, retries, resume=None):
         else:
             raise ValueError(f"{filename} is not a PDF or a .docx")
     prompt = build_prompt(DATA.joinpath("profile_prompt.md").read_text(), answers, resume_text)
-    profile, _model, _usage = generate(prompt, models, api_key, retries, pdf=pdf)
+    text, _model, _usage = generate(prompt, models, api_key, retries, pdf=pdf, schema=PROFILE_SCHEMA)
+    try:
+        reply = json.loads(text)
+        profile = reply["profile_markdown"]
+        titles, excludes, terms = (_phrases("\n".join(reply[key]))
+                                   for key in ("title_keywords", "title_excludes", "vocabulary"))
+    except (ValueError, KeyError) as exc:
+        raise ModelError(f"the drafted profile was not the requested JSON: {exc}") from exc
     title_filter, title_exclude = title_filters(answers)
     # A starred license is one the user would get, so a posting's line naming it matters too.
     vocabulary = ([TOOL_LEVEL.sub("", phrase) for phrase in _phrases(answers.get("tools"))]
@@ -92,6 +112,9 @@ def draft_profile(answers, models, api_key, retries, resume=None):
         "title_filter": "\n".join(title_filter),
         "title_exclude": "\n".join(title_exclude),
         "vocabulary": "\n".join(vocabulary),
+        "supplemental_titles": "\n".join(_pattern(phrase) for phrase in titles),
+        "supplemental_excludes": "\n".join(_pattern(phrase) for phrase in excludes),
+        "supplemental_vocabulary": "\n".join(terms),
         "lookback_days": LOOKBACK_DAYS_DEFAULT,
         "max_picks": MAX_PICKS_DEFAULT,
     }

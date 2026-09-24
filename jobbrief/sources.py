@@ -64,7 +64,7 @@ SIGNAL_TIERS = [
                r"|familiar|strong (?:background|understanding|knowledge|experience|skills)|deep (?:understanding|knowledge|experience)"
                r"|degree|\bbs\b|\bms\b|phd|must|required|require\b|nice to have|bonus|preferred|\bplus\b|you have|you.ve"
                r"|you are|you.ll (?:need|bring)|we.re looking for|ideal candidate|track record", re.IGNORECASE),
-    # Stack mentions: the software default, used when a user's Settings vocabulary row is blank.
+    # Stack mentions: the software default, used when both of a user's vocabulary rows are blank.
     re.compile(r"python|rust|\bgo\b|golang|\bjava\b|c\+\+|typescript|kubernetes|\baws\b|gcp|azure|postgres|kafka"
                r"|terraform|distributed|microservice|api\b|sdk|compiler|runtime|linux", re.IGNORECASE),
 ]
