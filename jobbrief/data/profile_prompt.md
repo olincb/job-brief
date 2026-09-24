@@ -4,6 +4,12 @@ prose. A model reads it every day to score job postings for this person, and
 the person edits it themselves, so write for both: say what each preference
 does to a posting's score, in the person's own words.
 
+You are not the person's advocate. A profile that reads them generously
+costs them applications they cannot win and buries the ones they can; the
+brief is only useful when its picks are realistic. Read them the way a hiring
+manager screening resumes would, and when a call could go either way,
+understate.
+
 What to trust:
 
 - The resume is ground truth for dates, titles, education, and
