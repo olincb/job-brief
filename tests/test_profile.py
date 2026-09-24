@@ -6,7 +6,7 @@ import zipfile
 import pytest
 
 from jobbrief import llm
-from jobbrief.profile import build_prompt, docx_text, draft_profile, title_filters
+from jobbrief.profile import PROFILE_SCHEMA, build_prompt, docx_text, draft_profile, title_filters
 from jobbrief.sheet import MAX_PICKS_DEFAULT
 
 
@@ -50,14 +50,27 @@ def test_docx_text_joins_runs_into_paragraphs():
     assert docx_text(buffer.getvalue()) == "Water quality analyst, 6 years\nSampling and reporting"
 
 
-def test_draft_profile_attaches_a_pdf_resume_and_returns_the_settings(monkeypatch):
+# A drafting reply in the schema's shape, with invented phrases.
+REPLY = {"profile_markdown": "## Summary\n\nA water person.",
+         "title_keywords": ["Water Resources Engineer", "Hydrologist (Senior)"],
+         "title_excludes": ["Sales Engineer"],
+         "vocabulary": ["Water Distribution Operator", "WDM"]}
+
+
+def replying(monkeypatch, text):
+    """Serve `text` as every model reply and return the request bodies sent."""
     bodies = []
 
     def call(model, body, api_key, attempts):
         bodies.append(json.loads(body))
-        return {"candidates": [{"content": {"parts": [{"text": "## Summary\n\nA water person."}]}}], "usageMetadata": {}}
+        return {"candidates": [{"content": {"parts": [{"text": text}]}}], "usageMetadata": {}}
 
     monkeypatch.setattr(llm, "call_gemini", call)
+    return bodies
+
+
+def test_draft_profile_attaches_a_pdf_resume_and_returns_the_settings(monkeypatch):
+    bodies = replying(monkeypatch, json.dumps(REPLY))
     answers = dict(ANSWERS,
                    tools="GIS - job\nscikit-learn - job\nNode.js: daily\nC++ (class)\n"
                          "CI/CD - at work\nGoogle Sheets - daily\nR — heard of",
@@ -66,12 +79,23 @@ def test_draft_profile_attaches_a_pdf_resume_and_returns_the_settings(monkeypatc
     parts = bodies[0]["contents"][0]["parts"]
     assert parts[0]["inlineData"] == {"mimeType": "application/pdf", "data": base64.b64encode(b"%PDF-1.4").decode()}
     assert "## Dealbreakers" in parts[1]["text"]
+    assert bodies[0]["generationConfig"]["responseJsonSchema"] == PROFILE_SCHEMA
     assert profile == "## Summary\n\nA water person."
     assert settings["title_filter"].splitlines()[0] == "water quality analyst"
     assert settings["title_exclude"].splitlines() == ["sales"]
     assert settings["vocabulary"].splitlines() == ["GIS", "scikit-learn", "Node.js", "C++", "CI/CD",
                                                     "Google Sheets", "R", "Class B CDL", "pesticide applicator"]
+    # The model's parentheses are escaped so the phrase matches literally.
+    assert settings["suggested_titles"].splitlines() == ["Water Resources Engineer", r"Hydrologist \(Senior\)"]
+    assert settings["suggested_excludes"] == "Sales Engineer"
+    assert settings["suggested_vocabulary"].splitlines() == ["Water Distribution Operator", "WDM"]
     assert settings["max_picks"] == MAX_PICKS_DEFAULT
+
+
+def test_a_reply_that_is_not_the_schemas_json_fails_the_draft(monkeypatch):
+    replying(monkeypatch, "## Summary\n\nA water person.")
+    with pytest.raises(llm.ModelError):
+        draft_profile(ANSWERS, ["primary"], "key", 2)
 
 
 def test_a_resume_that_is_neither_a_pdf_nor_a_docx_is_refused():

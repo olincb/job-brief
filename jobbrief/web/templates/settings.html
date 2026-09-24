@@ -12,12 +12,28 @@ editable there too; this page is the short way in.</p>
 
 <label for="title_filter">Titles to look for</label>
 <span class="hint">One per line, as a regular expression. A posting whose title matches
-any of these is shown to the model. An empty list means no brief.</span>
+any of these, or any suggested title below, is shown to the model. With both lists empty
+there is no brief.</span>
 <textarea id="title_filter" name="title_filter" rows="6">{{ settings.title_filter }}</textarea>
 
 <label for="title_exclude">Titles to drop</label>
-<span class="hint">One per line. Checked first: a match here is never shown.</span>
+<span class="hint">One per line. Checked first: a match here, or in the suggested drops
+below, is never shown.</span>
 <textarea id="title_exclude" name="title_exclude" rows="6">{{ settings.title_exclude }}</textarea>
+
+<label for="suggested_titles">Suggested titles to look for</label>
+<span class="hint">One per line, as a regular expression. Drafted from your answers and resume,
+used alongside yours, and redrawn when you retake the questionnaire.</span>
+<textarea id="suggested_titles" name="suggested_titles" rows="6">{{ settings.suggested_titles }}</textarea>
+
+<label for="suggested_excludes">Suggested titles to drop</label>
+<span class="hint">One per line, as a regular expression. Drafted and redrawn the same way.</span>
+<textarea id="suggested_excludes" name="suggested_excludes" rows="6">{{ settings.suggested_excludes }}</textarea>
+
+<label for="suggested_vocabulary">Suggested terms to keep</label>
+<span class="hint">One per line, as written. A line of a long posting that names one of these
+reaches the model, alongside the tools and licenses you listed.</span>
+<textarea id="suggested_vocabulary" name="suggested_vocabulary" rows="6">{{ settings.suggested_vocabulary }}</textarea>
 
 <fieldset>
 <legend>How often</legend>
@@ -57,6 +73,7 @@ Hold my briefs until I come back</label>
 
 <h2>Other things</h2>
 <p><a href="{{ url_for('signup') }}">Retake the questionnaire</a> — regenerates your
-profile and title filters from fresh answers, and leaves your postings and history alone.</p>
+profile, title filters, and suggestions from fresh answers, and leaves your postings and
+history alone.</p>
 <p><a href="{{ url_for('confirm_delete') }}">Remove me</a></p>
 {% endblock %}

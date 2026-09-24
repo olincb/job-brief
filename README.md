@@ -11,7 +11,7 @@ form in [`docs/questionnaire.md`](docs/questionnaire.md), one line per file in
 
 ## Setup
 
-Python 3.11 or newer. `pip install git+https://github.com/olincb/job-brief@v1.1.0`,
+Python 3.11 or newer. `pip install git+https://github.com/olincb/job-brief@v1.2.0`,
 then `python -m jobbrief --help`. For engine work, `pip install -e ".[dev]"` and
 `python -m pytest`; the suite is offline and takes under a second. Fixtures and
 re-recording are in [`tests/README.md`](tests/README.md).

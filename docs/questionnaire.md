@@ -72,12 +72,13 @@ pipeline setting it informs, and *shape:* the answer type.
 7. **Titles you would search for.** Three to five phrases, the way a job
    board would spell them.
    *feeds:* the title filter that selects postings for you from the shared
-   pool. Required; a user with no title filter is not run.
+   pool, and the suggested titles drafted beside it. Required.
    *shape:* list of short phrases.
 
 8. **Titles or kinds of role you never want to see**, even at a great
    place.
-   *feeds:* the title exclude filter and the profile's dealbreakers.
+   *feeds:* the title exclude filter, the suggested excludes, and the
+   profile's dealbreakers.
    *shape:* list of short phrases. Required, may be "none".
 
 9. **Employers you would work for.** Order by preference, delete any you
@@ -181,8 +182,12 @@ pipeline setting it informs, and *shape:* the answer type.
   away.
 - Never copy contact details into the profile.
 - Question 7 becomes the title filter and question 8 the exclude filter, as
-  typed. What a level word implies reads differently in every field, so
-  seniority is judgment the profile carries, not a list the engine keeps.
+  typed. The generator drafts suggested titles and excludes from the field,
+  the years, the most recent title, and questions 7, 8, and 10, and
+  suggested vocabulary from the field and the resume, each in its own
+  setting beside the typed one. What a level word implies reads differently
+  in every field, so seniority is the generator's judgment, not a list the
+  engine keeps.
 - Everything about frequency, pick count, and pause is a setting, not a
   question; defaults are daily, fifteen picks, active.
 

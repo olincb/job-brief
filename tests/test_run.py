@@ -56,6 +56,7 @@ ENV = {"GEMINI_API_KEY": "key", "SERVICE_ACCOUNT_JSON": "{}", "REGISTRY_SHEET_ID
 USER_A = {"email": "a@example.com", "sheet_id": "sheet-a", "active": "yes", "frequency": "daily", "added": "2026-01-01"}
 USER_B = {"email": "b@example.com", "sheet_id": "sheet-b", "active": "yes", "frequency": "daily", "added": "2026-01-01"}
 USER_C = {"email": "c@example.com", "sheet_id": "sheet-c", "active": "yes", "frequency": "daily", "added": "2026-01-01"}
+# No suggested_* rows, so the run reads a missing key as blank.
 SETTINGS = [{"key": "title_filter", "value": "engineer"}, {"key": "title_exclude", "value": ""},
             {"key": "lookback_days", "value": "3"}, {"key": "max_picks", "value": "5"}]
 SNIPPET = "5+ years of experience with Python. " * 120  # long enough that condensing it shows
@@ -161,6 +162,23 @@ def test_an_empty_title_filter_costs_no_model_call(monkeypatch):
     assert recipients(events) == []
 
 
+def test_suggested_titles_alone_are_a_filter(monkeypatch):
+    settings = [dict(row, value="") if row["key"] == "title_filter" else row for row in SETTINGS]
+    settings.append({"key": "suggested_titles", "value": "engineer"})
+    events = drive(monkeypatch, [USER_A], {("sheet-a", "Settings"): settings}, picks=1)
+    assert run.run(ENV, FRIDAY) == 0
+    assert logged_run(events, "sheet-a")["outcome"] == "sent"
+
+
+def test_a_suggested_title_widens_the_candidates(monkeypatch):
+    settings = SETTINGS + [{"key": "suggested_titles", "value": "hydrologist"}]
+    events = drive(monkeypatch, [USER_A], {("sheet-a", "Settings"): settings}, picks=1)
+    hydrologist = posting("fake", "board", 9, "Hydrologist", "Remote", "https://example.com/jobs/9", None, SNIPPET)
+    monkeypatch.setattr(run, "FETCHERS", {"hackernews": lambda slug: iter(POOL + [hydrologist])})
+    assert run.run(ENV, FRIDAY) == 0
+    assert logged_run(events, "sheet-a")["candidates"] == len(POOL) + 1
+
+
 # HEARTBEAT_DAYS days of silence break it, and a user who has never been emailed is overdue.
 @pytest.mark.parametrize("quiet_days, outcome", [(run.HEARTBEAT_DAYS - 1, "quiet"), (run.HEARTBEAT_DAYS, "heartbeat"), (None, "heartbeat")])
 def test_no_picks_says_hello_once_the_silence_is_long_enough(monkeypatch, quiet_days, outcome):
@@ -183,10 +201,21 @@ def test_blank_numbers_run_on_the_defaults(monkeypatch):
     assert f"Maximum picks: {MAX_PICKS_DEFAULT}" in next(event[1] for event in events if event[0] == "generate")
 
 
-def test_the_settings_vocabulary_keeps_its_terms_in_the_prompt(monkeypatch):
+def test_a_suggested_exclude_drops_a_posting_the_typed_filter_would_pass(monkeypatch):
+    settings = SETTINGS + [{"key": "suggested_excludes", "value": "hydrologist"}]
+    events = drive(monkeypatch, [USER_A], {("sheet-a", "Settings"): settings}, picks=1)
+    hydrologist = posting("fake", "board", 9, "Senior Hydrologist Engineer", "Remote",
+                           "https://example.com/jobs/9", None, SNIPPET)
+    monkeypatch.setattr(run, "FETCHERS", {"hackernews": lambda slug: iter(POOL + [hydrologist])})
+    assert run.run(ENV, FRIDAY) == 0
+    assert logged_run(events, "sheet-a")["candidates"] == len(POOL)
+
+
+@pytest.mark.parametrize("key", ["vocabulary", "suggested_vocabulary"])
+def test_the_settings_vocabulary_keeps_its_terms_in_the_prompt(monkeypatch, key):
     license_line = "A valid driver's license and a pesticide applicator certification."
     filler = "The district serves the county watershed. " * 80
-    settings = SETTINGS + [{"key": "vocabulary", "value": "\npesticide applicator\n\n"}]
+    settings = SETTINGS + [{"key": key, "value": "\npesticide applicator\n\n"}]
     events = drive(monkeypatch, [USER_A], {("sheet-a", "Settings"): settings}, picks=1)
     field_job = posting("fake", "board", 9, "Field Engineer", "Remote", "https://example.com/jobs/9", None, filler + license_line)
     monkeypatch.setattr(run, "FETCHERS", {"hackernews": lambda slug: iter([field_job])})
