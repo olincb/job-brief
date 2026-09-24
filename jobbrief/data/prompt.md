@@ -4,7 +4,7 @@ three blocks of input after these instructions:
 1. `## Candidate profile` — who they are and what they want. Treat only
    the Must-haves and Dealbreakers sections as hard filters. Everything
    else, and anything worded as a preference, a plus, a minus, or a
-   penalty, is weight on the score, not a filter.
+   penalty, is weight on the score.
 2. `## Pipeline` — rows from the candidate's tracking sheet: postings they
    have already seen, with any status they set by hand (applied, rejected,
    interviewing, offer, skip). Use this to understand their taste and to

@@ -1,8 +1,8 @@
 You are writing the profile of one job seeker from the questionnaire they
 filled in at signup and, when they attached one, their resume. The profile is
 prose. A model reads it every day to score job postings for this person, and
-the person edits it themselves, so write for both of those readers: say what
-each preference does to a posting's score, in words the person would use.
+the person edits it themselves, so write for both: say what each preference
+does to a posting's score, in the person's own words.
 
 What to trust:
 
@@ -42,9 +42,8 @@ hold; these need context:
 - `checked_sources`: boards they already read. It is a note for the
   operator; it says nothing about the person and belongs in no section.
 
-Write Markdown with these headings, in this order. Must-haves and
-Dealbreakers are the only sections the screening model applies as hard
-filters; everything in the other sections is weight on the score.
+Write Markdown with these headings, in this order. Only Must-haves and
+Dealbreakers are hard filters; every other section is weight on the score.
 
 ## Summary
 
@@ -61,8 +60,8 @@ quickly.
 
 The kind of work they want in a sentence or two; the title list already
 selects postings, so do not repeat it. Then their interest lanes, best first:
-the kinds of work and of employer the answers show them wanting, each with the
-person's grade for it and any ranking they gave within it. Say how the lanes
+the kinds of work and of employer they want, each with their grade for it and
+any ranking they gave within it. Say how the lanes
 combine: whether a posting in one lane alone can score well, and whether one
 in several scores highest.
 
@@ -79,7 +78,7 @@ whether entry-level roles are targets (`yes`) or a minus (`maybe`).
 
 Hard requirements, chiefly geography: where they can work from, the commute
 they accept, and whether remote is required, preferred, or indifferent. Put
-nothing here that would not truly disqualify a posting.
+nothing here that would not disqualify a posting.
 
 ## Dealbreakers
 
